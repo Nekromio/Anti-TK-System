@@ -4,12 +4,11 @@
 #include <sdktools_functions>
 #include <sdktools_stringtables>
 #include <sdktools_entinput>
+#include <sdktools_gamerules>
 #include <sdkhooks>
 #include <cstrike>
 #include <smartdm>
-#include <multicolors>
-#include <csgo_colors>
-#include <sdktools>
+#include <colors_ws>
 
 #undef REQUIRE_PLUGIN
 #tryinclude <materialadmin>
@@ -17,7 +16,6 @@
 
 #pragma newdecls required
 
-//ConVar cFriendlyFire;
 ConVar
 	cvEnable,
 	cvDebag,
@@ -86,9 +84,10 @@ int
 	VictimClient[MAXPLAYERS + 1],
 	SpawnTime[MAXPLAYERS + 1],
 	iTKRoundLimit[MAXPLAYERS+1],		//Количество раундов которое игрок не убивал своих (или был прощён)
-	Engine_Version,
 	iTKDmgLimit[MAXPLAYERS+1],		//Сумма урона игрока
-	iFriendlyFire;
+	iFriendlyFire,
+	game[4] = {0,1,2,3},
+	Engine_Version;		//0-UNDEFINED|1-css34|2-css|3-csgo
 
 char
 	PunishmentClient[MAXPLAYERS + 1][MAXPLAYERS + 1],
@@ -97,11 +96,6 @@ char
 	
 //char sChickenSec[][] =  { "ACT_WALK", "ACT_RUN", "ACT_IDLE", "ACT_JUMP", "ACT_GLIDE", "ACT_LAND", "ACT_HOP" };
 //char sChickenAnim[][] =  { "ref", "walk01", "run01", "run01Flap", "idle01", "peck_idle2", "flap", "flap_falling", "bounce", "bunnyhop" };
-	
-#define GAME_UNDEFINED 0
-#define GAME_CSS_34 1
-#define GAME_CSS 2
-#define GAME_CSGO 3
 
 int GetCSGame()
 {
@@ -109,12 +103,27 @@ int GetCSGame()
 	{
 		switch (GetEngineVersion())
 		{
-			case Engine_SourceSDK2006: return GAME_CSS_34;
-			case Engine_CSS: return GAME_CSS;
-			case Engine_CSGO: return GAME_CSGO;
+			case Engine_SourceSDK2006: return game[1];
+			case Engine_CSS: return game[2];
+			case Engine_CSGO: return game[3];
 		}
 	}
-	return GAME_UNDEFINED;
+	return game[0];
+}
+
+public APLRes AskPluginLoad2()
+{
+	Engine_Version = GetCSGame();
+	LoadTranslations("common.phrases");
+	switch(Engine_Version)
+	{
+		case 0: SetFailState("Game is not supported!");
+		case 1: LoadTranslations("antitk_cssv34.phrases");
+		case 2: LoadTranslations("antitk_css.phrases");
+		case 3: LoadTranslations("antitk_csgo.phrases");
+	}
+
+	return APLRes_Success;
 }
 
 public Plugin myinfo =
@@ -122,27 +131,12 @@ public Plugin myinfo =
 	name = "Anti-TK System",
 	author = "Lebson506th, by Nek.'a 2x2 | ggwp.site , oleg_nelasy",
 	description = "Anti-TK Система",
-	version = "1.1.1",
-	url = "http://hlmod.ru and https://ggwp.site/"
+	version = "1.1.2",
+	url = "https://ggwp.site/"
 };
-
-public APLRes AskPluginLoad2()
-{
-	Engine_Version = GetCSGame();
-	if(Engine_Version == GAME_UNDEFINED)
-		SetFailState("Game is not supported!");
-		
-	return APLRes_Success;
-}
 
 public void OnPluginStart()
 {
-	if(Engine_Version == GAME_CSS_34) LoadTranslations("antitk_cssv34");
-	if(Engine_Version == GAME_CSS) LoadTranslations("antitk_css");
-	if(Engine_Version == GAME_CSGO) LoadTranslations("antitk_csgo");
-	LoadTranslations("common.phrases");
-	
-	ConVar cvar;
 	cvEnable = CreateConVar("sm_tk_enabled", "1", "Включить/выключить плагин", _, true, _, true, 1.0);
 	
 	cvDebag = CreateConVar("sm_tk_debag", "0", "Включить/выключить дебаг", _, true, _, true, 1.0);
@@ -217,7 +211,7 @@ public void OnPluginStart()
 	
 	cvMsgFire = CreateConVar("sm_tk_msgfire", "1", "0 сообщение за урон по своим моментально убъёт, 1 огонь по своим будет активен через N секунд", _, true, _, true, 1.0);
 	
-	if(Engine_Version == GAME_CSGO)
+	if(Engine_Version == 3)
 	{
 		cvChickenModel = CreateConVar("sm_tk_models", "models/chicken/chicken.mdl", "Путь к модели mdl для превращения");
 	}
@@ -226,7 +220,7 @@ public void OnPluginStart()
 		cvChickenModel = CreateConVar("sm_tk_models", "models/lduke/chicken/chicken2.mdl", "Путь к модели mdl для превращения");
 	}
 	
-	if(Engine_Version != GAME_CSGO)
+	if(Engine_Version == 3)
 	{
 		cvDmgReduction = CreateConVar("sm_tk_dmgreduction", "0.33", "Множитель урона по своим для подсчёта лимита урона", _, true, 0.0);
 	}
@@ -238,6 +232,7 @@ public void OnPluginStart()
 	cvHudTextTKDmgEnable = CreateConVar("sm_tk_hudtexttkdmg", "1", "Включить оповещение лимита нанесённого урона в худе", _, true, _, true, 1.0);
 	
 	char sBuffer[16];
+	ConVar cvar;
 	(cvar = CreateConVar("sm_tk_hudtexttkdmg_pos", "0.35 -0.08", "Расположение. X/Y где X это горизонталь, а Y вертикаль")).AddChangeHook(CVarChanged_HudTextTKDmg_Position);
 	cvar.GetString(sBuffer, sizeof(sBuffer));
 	
@@ -258,7 +253,7 @@ public void OnPluginStart()
 	
 	Handle spawnprotect = FindConVar("mp_spawnprotectiontime");
 	
-	if(Engine_Version == GAME_CSGO)
+	if(Engine_Version == 3)
 	{
 		hDamage_reduction_bullets = FindConVar("ff_damage_reduction_bullets");
 		fDamage_reduction_bullets = GetConVarFloat(hDamage_reduction_bullets);
@@ -278,7 +273,7 @@ public void OnPluginStart()
 	char sGameName[80];
 	GetGameFolderName(sGameName, 80);
 
-	if(Engine_Version != GAME_CSGO)
+	if(Engine_Version != 3)
 	{
 		iMoney_offset = FindSendPropInfo("CCSPlayer", "m_iAccount");
 
@@ -394,8 +389,7 @@ void KillHandler(int victim, int attacker, bool spawn)
 		FormatEx(sMsgLog, sizeof(sMsgLog), "%t", "TKSlayed Logs", attacker);
 	}
 	
-	if(Engine_Version == GAME_CSGO) CGOPrintToChat(attacker, sMsgSay);
-	else CPrintToChat(attacker, sMsgSay);
+	CPrint(attacker, sMsgSay);
 
 	if(cvLogs.IntValue == 1)
 	{
@@ -449,7 +443,7 @@ void Event_PlayerSpawn(Event hEvent, const char[] name, bool dontBroadcast)
 	
 	if(cvSpawnProtect.IntValue > 0)
 	{	
-		if(client > 0 && IsClientInGame(client))
+		if(IsClientValid(client))
 			SpawnTime[client] = GetTime();
 	}
 
@@ -496,7 +490,7 @@ public Action Hook_TextMsg(UserMsg msg_id, Handle hBf, const char[] players, int
 	char sMessage[256];
 	BfReadString(hBf, sMessage, sizeof(sMessage));
 
-	if(Engine_Version == GAME_CSGO)
+	if(Engine_Version == 3)
 	{
 		//if(StrContains(sMessage, "teammate") != -1)
 		//return Plugin_Handled;
@@ -514,16 +508,11 @@ void SayWarnings(int client, int iDmg, int iVictim)
 	if(!cvTKDmg.IntValue)
 		return;
 	
-	//PrintToChat(client, "Сумма урона игрока [%N] - [%d]", iDmg, iTKDmgLimit[client]);
-	//PrintToChat(client, "Сумма урона игрока [%d] - [%d]", iDmg, iTKDmgLimit[client]);
-	if(Engine_Version == GAME_CSGO) CGOPrintToChat(client, "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[client], cvTKDmg.IntValue);
-	else CPrintToChat(client, "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[client], cvTKDmg.IntValue);
-	//PrintToChatAll("[%N] атаковал своего союзника [%N] !", client, iVictim);
+	CPrint(client, "Tag", "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[client], cvTKDmg.IntValue);
 	
 	for(int i = 1; i <= MaxClients; i++) if(IsClientInGame(i) && !IsFakeClient(i) && i != client)
 	{
-		if(Engine_Version == GAME_CSGO) CGOPrintToChat(i, "%t", "Tag", "Linit DMG All", client, iVictim);
-		else CPrintToChat(i, "%t", "Tag", "Linit DMG All", client, iVictim);
+		CPrint(i, "Tag", "%t", "Tag", "Linit DMG All", client, iVictim);
 	}
 }
 
@@ -533,12 +522,14 @@ Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage
 //		return Plugin_Handled;
 	
 	static char sMessage[256], sMsgKick[256];
-	if (1 <= iAttacker <= MaxClients) FormatEx(sMessage, sizeof(sMessage), "%T", "TK Limit Reached damage", iAttacker);
-	if (1 <= iAttacker <= MaxClients) FormatEx(sMsgKick, sizeof(sMsgKick), "%T", "Kicked Attaker damage", iAttacker);
+	if (IsClientValid(iAttacker))
+		FormatEx(sMessage, sizeof(sMessage), "%T", "TK Limit Reached damage", iAttacker);
+	if (IsClientValid(iAttacker))
+		FormatEx(sMsgKick, sizeof(sMsgKick), "%T", "Kicked Attaker damage", iAttacker);
 
-	if(Engine_Version == GAME_CSGO)
+	if(Engine_Version == 3)
 	{
-		for(int i = 1; i <= MaxClients; i++) if(iFriendlyFire && i == iAttacker && IsClientInGame(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64) && !GameRules_GetProp("m_bWarmupPeriod"))
+		for(int i = 1; i <= MaxClients; i++) if(iFriendlyFire && i == iAttacker && IsClientValid(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64) && !GameRules_GetProp("m_bWarmupPeriod"))
 		{
 			//PrintToChatAll("Размер множетеля [%.2f]", fDamage_reduction_bullets);
 			iTKDmgLimit[i] += RoundFloat(fDamage * fDamage_reduction_bullets);
@@ -574,7 +565,7 @@ Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage
 	}
 	else
 	{
-		for(int i = 1; i <= MaxClients; i++) if(iFriendlyFire && i == iAttacker && IsClientInGame(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64))
+		for(int i = 1; i <= MaxClients; i++) if(iFriendlyFire && i == iAttacker && IsClientValid(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64))
 		{
 			//iTKDmgLimit[i] += RoundFloat(fDamage);
 			/*int iVictimLostHp = GetEventInt(event, "dmg_health");		//Потеряное ХП
@@ -631,7 +622,7 @@ void Event_PlayerHurt(Event hEvent, const char[] name, bool dontBroadcast)
 	int attacker = GetClientOfUserId(GetEventInt(hEvent,"attacker"));	//Атакер
 	
 
-	if(attacker > 0 && IsClientInGame(attacker))
+	if(IsClientValid(attacker))
 	{
 		if((cvImmunity.IntValue == 1 || cvImmunity.IntValue == 3 || cvImmunity.IntValue == 7) && GetUserAdmin(attacker) != INVALID_ADMIN_ID)
 			return;
@@ -642,7 +633,7 @@ void Event_PlayerHurt(Event hEvent, const char[] name, bool dontBroadcast)
 
 		if(cvReflect.BoolValue || spawnAttack)		//Зеркальный урон, Убийство при атаке на респе
 		{
-			if(victim > 0 && IsClientInGame(victim))
+			if(IsClientValid(victim))
 			{
 				if(IsPlayerAlive(attacker) && GetClientTeam(attacker) == GetClientTeam(victim) && victim != attacker)
 				{
@@ -725,7 +716,7 @@ void Event_PlayerHurt(Event hEvent, const char[] name, bool dontBroadcast)
 
 stock void Shake(int client)
 {
-	if(Engine_Version == GAME_CSGO) 
+	if(Engine_Version == 3) 
 	{
 		Handle hBf = StartMessageOne("Shake", client);
 		if(hBf != INVALID_HANDLE)
@@ -964,8 +955,7 @@ void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 		}
 		if(TKCount[g] > 0)
 		{
-			if(Engine_Version == GAME_CSGO) CGOPrintToChat(g, "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], cvTKLimit.IntValue);
-			else CPrintToChat(g, "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], cvTKLimit.IntValue);
+			CPrint(g, "Tag", "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], cvTKLimit.IntValue);
 		}
 		
 		if(bTKRoundDmg[g] == false)
@@ -973,8 +963,7 @@ void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 			//PrintToChat(g, "Урон игрока до [%N] | [%d]", g, iTKDmgLimit[g]);
 			if(iTKDmgLimit[g] > 0)
 			{
-				if(Engine_Version == GAME_CSGO) CGOPrintToChat(g, "%t", "Tag", "Good behavior dmg msg", cvSubtractDmg.IntValue, iTKDmgLimit[g], cvTKDmg.IntValue);
-				else CPrintToChat(g, "%t", "Tag", "Good behavior dmg msg", cvSubtractDmg.IntValue, iTKDmgLimit[g], cvTKDmg.IntValue);
+				CPrint(g, "Tag", "%t", "Tag", "Good behavior dmg msg", cvSubtractDmg.IntValue, iTKDmgLimit[g], cvTKDmg.IntValue);
 			}
 			iTKDmgLimit[g] -= cvSubtractDmg.IntValue;
 			
@@ -1011,7 +1000,7 @@ void Event_PlayerDeath(Event hEvent, const char[] name, bool dontBroadcast)
 		bKillAttaker[c] = false;
 		if(cvDebag.BoolValue) PrintToChatAll("Игрока [%N] | Индекс игрока [%d] | Значение индекса [%d]", victim, c, bKillAttaker[c]);
 	}
-	if(attacker > 0 && victim > 0 && IsClientInGame(attacker) && IsClientInGame(victim))
+	if(IsClientValid(attacker) && IsClientValid(victim))
 	{
 		if(GetClientTeam(attacker) == GetClientTeam(victim) && victim != attacker)
 		{
@@ -1057,7 +1046,7 @@ void Event_PlayerDeath(Event hEvent, const char[] name, bool dontBroadcast)
 
 Action ForgiveMenu(int iAttacker, int iVictim)
 {
-	if(iAttacker <= MaxClients && iVictim <= MaxClients && iAttacker && iVictim && IsClientInGame(iAttacker) && IsClientInGame(iVictim))
+	if(IsClientValid(iAttacker) && IsClientValid(iVictim))
 	{
 		TKerClient[iVictim] = iAttacker;
 
@@ -1084,12 +1073,12 @@ public int AdminMenuHandler(Menu hMenu, MenuAction action, int client, int itemN
 {
 	if ( action == MenuAction_Select )
 	{
-		if(client > 0 && IsClientInGame(client))
+		if(IsClientValid(client))
 		{
 			int attacker = TKerClient[client];
 			TKerClient[client] = -1;
 
-			if(attacker > 0 && IsClientInGame(attacker))
+			if(IsClientValid(attacker))
 			{
 				char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], info[32];
 
@@ -1127,103 +1116,100 @@ public int AdminMenuHandler(Menu hMenu, MenuAction action, int client, int itemN
 
 Action PunishMenu(int victim, int attacker)
 {
-	if(attacker <= MaxClients && victim <= MaxClients && attacker > 0 && victim)
+	if(IsClientValid(attacker) && IsClientValid(victim))
 	{
-		if(IsClientInGame(attacker) && IsClientInGame(victim))
+		TKerClient[victim] = attacker;
+
+		Handle menu = CreateMenu(PunishMenuHandler);
+		char attackerName[MAX_NAME_LENGTH];
+
+		GetClientName(attacker, attackerName, MAX_NAME_LENGTH);
+
+		SetMenuTitle(menu, "%t", "PunishMenu", attackerName);
+
+		char warn[128];
+		Format(warn, sizeof(warn), "%t", "Warn", TKCount[attacker], cvTKLimit.IntValue);
+		AddMenuItem(menu, "warn", warn);
+
+		if(cvSlapDamage.IntValue > 0)
 		{
-			TKerClient[victim] = attacker;
-
-			Handle menu = CreateMenu(PunishMenuHandler);
-			char attackerName[MAX_NAME_LENGTH];
-
-			GetClientName(attacker, attackerName, MAX_NAME_LENGTH);
-
-			SetMenuTitle(menu, "%t", "PunishMenu", attackerName);
-
-			char warn[128];
-			Format(warn, sizeof(warn), "%t", "Warn", TKCount[attacker], cvTKLimit.IntValue);
-			AddMenuItem(menu, "warn", warn);
-
-			if(cvSlapDamage.IntValue > 0)
-			{
-				char slap[128];
-				Format(slap, sizeof(slap), "%t", "Slap");
-				AddMenuItem(menu, "slap", slap);
-			}
-
-			if(cvSlay.BoolValue)
-			{
-				char slay[128];
-				Format(slay, sizeof(slay), "%t", "Slay");
-				AddMenuItem(menu, "slay", slay);
-			}
-
-			if(cvBurn.BoolValue == true)
-			{
-				char burn[128];
-				Format(burn, sizeof(burn), "%t", "Burn");
-				AddMenuItem(menu, "burn", burn);
-			}
-
-			if(cvFreeze.BoolValue)
-			{
-				char freeze[128];
-				Format(freeze, sizeof(freeze), "%t", "Freeze");
-				AddMenuItem(menu, "freeze", freeze);
-			}
-
-			if(cvBeacon.BoolValue)
-			{
-				char beacon[128];
-				Format(beacon, sizeof(beacon), "%t", "Beacon");
-				AddMenuItem(menu, "beacon", beacon);
-			}
-
-			if(cvFreezeBomb.BoolValue)
-			{
-				char freezebomb[128];
-				Format(freezebomb, sizeof(freezebomb), "%t", "FreezeBomb");
-				AddMenuItem(menu, "freezebomb", freezebomb);
-			}
-
-			if(cvFireBomb.BoolValue)
-			{
-				char firebomb[128];
-				Format(firebomb, sizeof(firebomb), "%t", "FireBomb");
-				AddMenuItem(menu, "firebomb", firebomb);
-			}
-
-			if(cvTimeBomb.BoolValue)
-			{
-				char timebomb[128];
-				Format(timebomb, sizeof(timebomb), "%t", "TimeBomb");
-				AddMenuItem(menu, "timebomb", timebomb);
-			}
-
-			if(cvDrugTime.FloatValue > 0)
-			{
-				char drug[128];
-				Format(drug, sizeof(drug), "%t", "Drug");
-				AddMenuItem(menu, "drug", drug);
-			}
-
-			if(Engine_Version != GAME_CSGO && cvRemoveCash.IntValue > 0)
-			{
-				char cash[128];
-				Format(cash, sizeof(cash), "%t", "RemoveCash", cvRemoveCash.IntValue);
-				AddMenuItem(menu, "removecash", cash);
-			}
-			
-			if(cvChicken.BoolValue)
-			{
-				char sModelsSay[128];		//Курица
-				Format(sModelsSay, sizeof(sModelsSay), "%t", "Menu_Model");
-				AddMenuItem(menu, "Chicken", sModelsSay);
-			}
-
-			SetMenuExitButton(menu, false);
-			DisplayMenu(menu, victim, MENU_TIME_FOREVER);
+			char slap[128];
+			Format(slap, sizeof(slap), "%t", "Slap");
+			AddMenuItem(menu, "slap", slap);
 		}
+
+		if(cvSlay.BoolValue)
+		{
+			char slay[128];
+			Format(slay, sizeof(slay), "%t", "Slay");
+			AddMenuItem(menu, "slay", slay);
+		}
+
+		if(cvBurn.BoolValue == true)
+		{
+			char burn[128];
+			Format(burn, sizeof(burn), "%t", "Burn");
+			AddMenuItem(menu, "burn", burn);
+		}
+
+		if(cvFreeze.BoolValue)
+		{
+			char freeze[128];
+			Format(freeze, sizeof(freeze), "%t", "Freeze");
+			AddMenuItem(menu, "freeze", freeze);
+		}
+
+		if(cvBeacon.BoolValue)
+		{
+			char beacon[128];
+			Format(beacon, sizeof(beacon), "%t", "Beacon");
+			AddMenuItem(menu, "beacon", beacon);
+		}
+
+		if(cvFreezeBomb.BoolValue)
+		{
+			char freezebomb[128];
+			Format(freezebomb, sizeof(freezebomb), "%t", "FreezeBomb");
+			AddMenuItem(menu, "freezebomb", freezebomb);
+		}
+
+		if(cvFireBomb.BoolValue)
+		{
+			char firebomb[128];
+			Format(firebomb, sizeof(firebomb), "%t", "FireBomb");
+			AddMenuItem(menu, "firebomb", firebomb);
+		}
+
+		if(cvTimeBomb.BoolValue)
+		{
+			char timebomb[128];
+			Format(timebomb, sizeof(timebomb), "%t", "TimeBomb");
+			AddMenuItem(menu, "timebomb", timebomb);
+		}
+
+		if(cvDrugTime.FloatValue > 0)
+		{
+			char drug[128];
+			Format(drug, sizeof(drug), "%t", "Drug");
+			AddMenuItem(menu, "drug", drug);
+		}
+
+		if(Engine_Version != 3 && cvRemoveCash.IntValue > 0)
+		{
+			char cash[128];
+			Format(cash, sizeof(cash), "%t", "RemoveCash", cvRemoveCash.IntValue);
+			AddMenuItem(menu, "removecash", cash);
+		}
+		
+		if(cvChicken.BoolValue)
+		{
+			char sModelsSay[128];		//Курица
+			Format(sModelsSay, sizeof(sModelsSay), "%t", "Menu_Model");
+			AddMenuItem(menu, "Chicken", sModelsSay);
+		}
+
+		SetMenuExitButton(menu, false);
+		DisplayMenu(menu, victim, MENU_TIME_FOREVER);
 	}
 	return Plugin_Handled;
 }
@@ -1232,12 +1218,12 @@ public int PunishMenuHandler(Menu hMenu, MenuAction action, int client, int item
 {
 	if ( action == MenuAction_Select )
 	{
-		if(client > 0 && IsClientInGame(client))
+		if(IsClientValid(client))
 		{
 			int attacker = TKerClient[client];
 			TKerClient[client] = -1;
 
-			if(attacker > 0 && IsClientInGame(attacker))
+			if(IsClientValid(attacker))
 			{
 				char info[32];
 				GetMenuItem(hMenu, itemNum, info, sizeof(info));
@@ -1261,53 +1247,12 @@ public int PunishMenuHandler(Menu hMenu, MenuAction action, int client, int item
 	{
 		CloseHandle(hMenu);
 	}
-	/*switch(action)
-	{
-		case MenuAction_End:	 // Меню завершилось
-		  {
-				// Оно нам больше не нужно. Удалим его
-				delete hMenu;
-		  }
-		case MenuAction_Cancel:	 // Меню было отменено
-		  {
-			if(client > 0 && IsClientInGame(client))
-			{
-				int attacker = TKerClient[client];
-				TKerClient[client] = -1;
-
-				if(attacker > 0 && IsClientInGame(attacker))
-				{
-					char info[32];
-					GetMenuItem(hMenu, itemNum, info, sizeof(info));
-
-					if(IsPlayerAlive(attacker))
-					{
-						PunishHandler(client, attacker, info);
-					}
-					else
-					{
-						PunishmentClient[attacker] = info;
-						CreateTimer(5.0, WaitForSpawn, attacker, TIMER_FLAG_NO_MAPCHANGE);
-						if(cvDebag.BoolValue) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 2", attacker, 5.0);
-					}
-				}
-			}
-		}
-	}*/
 	return 0;
 }
 
-/*
-	Handler for when a player is not forgiven.
-	Made it a function because i used it twice.
-	
-	Обработчик для тех случаев, когда игрок не прощен.
-	Сделал его функцией, потому что я использовал его дважды.
-*/
-
 void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LENGTH])
 {
-	if(attacker > 0 && client > 0 && IsClientInGame(attacker) && IsClientInGame(client))
+	if(IsClientValid(attacker) && IsClientValid(client))
 	{
 		char sNameAttaker[MAX_NAME_LENGTH];
 		GetClientName(attacker, sNameAttaker, MAX_NAME_LENGTH);
@@ -1384,8 +1329,8 @@ void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LENGTH])
 
 				if(cvKickMsg.IntValue == 1)
 				{
-					if(Engine_Version == GAME_CSGO) CGOPrintToChatAll("%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
-					else CPrintToChatAll("%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
+					for(int j = 1; j <= MaxClients; j++) if(IsClientValid(j) && !IsFakeClient(j))
+						CPrint(j, "Tag", "%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
 				}
 				else if(cvKickMsg.IntValue == 2)
 				{
@@ -1393,8 +1338,7 @@ void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LENGTH])
 					{
 						if(IsClientInGame(a) && GetUserAdmin(a) != INVALID_ADMIN_ID && a != attacker)
 						{
-							if(Engine_Version == GAME_CSGO) CGOPrintToChat(a, "%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
-							else CPrintToChat(a, "%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
+							CPrint(a, "Tag", "%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
 						}
 					}
 				}
@@ -1447,9 +1391,9 @@ void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LENGTH])
 */
 void PunishHandler(int client, int attacker, char punishment[32])
 {
-	if(client > 0 && IsClientInGame(client))
+	if(IsClientValid(client))
 	{
-		if(attacker > 0 && IsClientInGame(attacker))
+		if(IsClientValid(attacker))
 		{
 			char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], PunishMsg[128];
 
@@ -1579,7 +1523,7 @@ void PunishHandler(int client, int attacker, char punishment[32])
 	}
 	else
 	{
-		if(attacker > 0 && IsClientInGame(attacker))
+		if(IsClientValid(attacker))
 		{
 			char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], PunishMsg[128];
 
@@ -1746,7 +1690,7 @@ void RemoveGrenade(int client)
 	RemoveGrenades(client, "weapon_smokegrenade");
 	RemoveGrenades(client, "weapon_flashbang");
 	
-	if(Engine_Version != GAME_CSGO)
+	if(Engine_Version != 3)
 		return;
 	
 	RemoveGrenades(client, "weapon_decoy");
@@ -1800,35 +1744,29 @@ void DoChat(int victim, int attacker, char msg1[128], char msg2[128], int cvar, 
 
 	if(cvar == 1)
 	{
-		if(Engine_Version == GAME_CSGO) CGOPrintToChatAll("%t", "Tag", "Do chat all", msg1);		//CGOPrintToChatAll("\x04[STK]\x01 %s", msg1);
-		else CPrintToChatAll("%t", "Tag", "Do chat all", msg1);
+		for(int i = 1; i <= MaxClients; i++) if(IsClientValid(i) && !IsFakeClient(i))
+			CPrint(i, "Tag", "%t", "Tag", "Do chat all", msg1);	
 	}
 	else
 	{
 		if(cvar > 1 && cvar <= 4)
 		{
-			for(int a = 1; a <= MaxClients; a++)
+			for(int a = 1; a <= MaxClients; a++) if(IsClientValid(a))
 			{
-				if(IsClientInGame(a))
+				if(GetUserAdmin(a) != INVALID_ADMIN_ID)
 				{
-					if(GetUserAdmin(a) != INVALID_ADMIN_ID)
+					if(cvar == 3 || cvar == 4)
 					{
-						if(cvar == 3 || cvar == 4)
-						{
-							if(Engine_Version == GAME_CSGO) CGOPrintToChat(a, "%t", "Tag", "Do chat admin", msg1);		//CGOPrintToChat(a, "%s %s", "Tag", msg1);
-							else CPrintToChat(a, "%t", "Tag", "Do chat admin", msg1);
-						}
+						CPrint(a, "Tag", "%t", "Tag", "Do chat admin", msg1);
 					}
-					else if(a == victim && (cvar == 2 || cvar == 3))
-					{
-						if(Engine_Version == GAME_CSGO) CGOPrintToChat(victim, "%t", "Tag", "Do chat victim", msg1);		//CGOPrintToChat(victim, "%s %s", "Tag", msg1);
-						else CPrintToChat(victim, "%t", "Tag", "Do chat victim", msg1);
-					}
-					else if(a == attacker && (cvar == 2 || cvar== 3))
-					{
-						if(Engine_Version == GAME_CSGO) CGOPrintToChat(attacker, "%t", "Tag", "Do chat attacker", msg2);		//CGOPrintToChat(attacker, "%s %s", "Tag", msg2);
-						else CPrintToChat(attacker, "%t", "Tag", "Do chat attacker", msg2);
-					}
+				}
+				else if(a == victim && (cvar == 2 || cvar == 3))
+				{
+					CPrint(victim, "Tag", "%t", "Tag", "Do chat victim", msg1);
+				}
+				else if(a == attacker && (cvar == 2 || cvar== 3))
+				{
+					CPrint(attacker, "Tag", "%t", "Tag", "Do chat attacker", msg2);
 				}
 			}
 		}
@@ -1853,7 +1791,7 @@ Action Undrug(Handle timer, any UserID)
 
 Action WaitForSpawn(Handle timer, any attacker)
 {
-	if(attacker > 0 && IsClientInGame(attacker))
+	if(IsClientValid(attacker))
 	{
 		int victim = VictimClient[attacker];
 		VictimClient[attacker] = -1;
@@ -1883,4 +1821,9 @@ Action WaitForSpawn(Handle timer, any attacker)
 		}
 	}
 	return Plugin_Handled;
+}
+
+bool IsClientValid(int client)
+{
+	return 0 < client <= MaxClients && IsClientInGame(client);
 }
