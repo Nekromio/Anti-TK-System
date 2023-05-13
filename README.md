@@ -1,6 +1,8 @@
 # Anti-TK-System
 Anti-TK System
 
+https://youtu.be/zWEfkWqv-vY?list=PLNUg9zX_a3XiZvKtLrM2JVm49cheHN392
+
 # en
 We bring to your attention an Anti-TK System that allows you to track non-conscientious players who kill/injure teammates (with mp_friendlyfire 1). This plugin provides the functionality:
 
