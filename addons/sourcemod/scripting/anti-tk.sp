@@ -17,85 +17,83 @@
 
 #pragma newdecls required
 
-#define ALLIES 2
-#define AXIS 3
-
 //ConVar cFriendlyFire;
+ConVar
+	cvEnable,
+	cvDebag,
+	cvReflect,
+	cvAutoKill,
+	cvShake,
+	cvTKLimit,
+	cvForgive,
+	cvCount,
+	cvPunishMsg,
+	cvKickMsg,
+	cvSpawnProtect,
+	cvImmunity,
+	cvPunishMode,
+	cvSlay,
+	cvPunishMent,
+	cvFreeze,
+	cvBeacon,
+	cvFreezeBomb,
+	cvFireBomb,
+	cvTimeBomb,
+	cvBurn,
+	cvChicken,
+	cvMsgFire,		//сообщение урон по своим !
+	cvDraw,			//Включить вид от 3 лица курице
+	cvPerformFade,
+	cvHudTextTKDmgEnable,
+	cvDrugTime,
+	cvDamageRatio,
+	cvShakeAmp,
+	cvShakeTime,
+	cvEyeAngle,
+	cvChickenSpeed,
+	cvDmgReduction,
+	cvSlapDamage,
+	cvBanTime,
+	cvMethod,
+	cvTKDmg,
+	cvSubtractDmg,		//Количество урона вычитаемое в начале раунда при хорошем поведении
+	cvRemoveCash,
+	cvLogs,
+	cvTKRound,			//Количество раундов после которого скинется предупреждение
+	cvChickenModel;		
 
 bool
-	bEnable,
-	bReflect,
-	bSlay,
-	bFreeze,
-	bBeacon,
-	bFreezeBomb,
-	bFireBomb,
-	bTimeBomb,
-	bBurn,
 	bKillAttaker[MAXPLAYERS+1],
-	bDebag,
-	bChicken,
 	bTKRoundKill[MAXPLAYERS+1],		//Если убил своего во время раунда
-	bShake,
-	bAutoKill,
 	bHook[MAXPLAYERS+1],
 	bTypeDmgGrenade,
-	bTKRoundDmg[MAXPLAYERS+1],		//Наносил ли игрок урон в раунде своей команде
-	bMsgFire,	//сообщение урон по своим !
-	bDraw,		//Включить вид от 3 лица курице
-	bPerformFade,
-	bHudTextTKDmgEnable;
+	bTKRoundDmg[MAXPLAYERS+1];		//Наносил ли игрок урон в раунде своей команде
 
 Handle
-	hChicken,
 	hDamage_reduction_bullets,
 	hFriendlyFire,
 	hHudTextTKDmg;
 
 float
-	fDrugTime,
-	fDamageRatio,
-	fShakeAmp,
-	fShakeTime,
-	fEyeAngle,
-	fChickenSpeed,
 	fDamage_reduction_bullets,
-	fDmgReduction,
 	fHudTextTKDmgPos[2];
 
 int
 	iMoney_offset = -1,
-	iTKLimit,
-	iForgive,
-	iCount,
-	iPunishMsg,
-	iKickMsg,
-	iSpawnProtect,
-	iImmunity,
-	iPunishMode,
-	iPunishMent,
-	iSlapDamage,
-	iBanTime,
-	iRemoveCash,
-	iLogs,
 	HideTeamswitchMsg[MAXPLAYERS + 1],
 	TKCount[MAXPLAYERS + 1],
 	TKerClient[MAXPLAYERS + 1] = {-1, ...},		//Массив состояния жертвы
 	VictimClient[MAXPLAYERS + 1],
 	SpawnTime[MAXPLAYERS + 1],
 	iTKRoundLimit[MAXPLAYERS+1],		//Количество раундов которое игрок не убивал своих (или был прощён)
-	iTKRound,	//Количество раундов после которого скинется предупреждение
 	Engine_Version,
-	iMethod,
-	iTKDmg,
 	iTKDmgLimit[MAXPLAYERS+1],		//Сумма урона игрока
-	iSubtractDmg,		//Количество урона вычитаемое в начале раунда при хорошем поведении
 	iFriendlyFire;
 
 char
 	PunishmentClient[MAXPLAYERS + 1][MAXPLAYERS + 1],
 	sPath[PLATFORM_MAX_PATH],
-	sChicken[256];
+	sChicken[512];
 	
 //char sChickenSec[][] =  { "ACT_WALK", "ACT_RUN", "ACT_IDLE", "ACT_JUMP", "ACT_GLIDE", "ACT_LAND", "ACT_HOP" };
 //char sChickenAnim[][] =  { "ref", "walk01", "run01", "run01Flap", "idle01", "peck_idle2", "flap", "flap_falling", "bounce", "bunnyhop" };
@@ -124,7 +122,7 @@ public Plugin myinfo =
 	name = "Anti-TK System",
 	author = "Lebson506th, by Nek.'a 2x2 | ggwp.site , oleg_nelasy",
 	description = "Anti-TK Система",
-	version = "1.1.0",
+	version = "1.1.1",
 	url = "http://hlmod.ru and https://ggwp.site/"
 };
 
@@ -145,185 +143,99 @@ public void OnPluginStart()
 	LoadTranslations("common.phrases");
 	
 	ConVar cvar;
-	cvar = CreateConVar("sm_tk_enabled", "1", "Включить/выключить плагин", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Enable);
-	bEnable = cvar.BoolValue;
+	cvEnable = CreateConVar("sm_tk_enabled", "1", "Включить/выключить плагин", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_debag", "0", "Включить/выключить дебаг", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Debag);
-	bDebag = cvar.BoolValue;
+	cvDebag = CreateConVar("sm_tk_debag", "0", "Включить/выключить дебаг", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_reflect", "1", "Включить/выключить отражение урона", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Reflect);
-	bReflect = cvar.BoolValue;
+	cvReflect = CreateConVar("sm_tk_reflect", "1", "Включить/выключить отражение урона", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_autokill", "0", "Убивать ли автоматически игрока за тим кил?", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_AutoKill);
-	bAutoKill = cvar.BoolValue;
+	cvAutoKill = CreateConVar("sm_tk_autokill", "0", "Убивать ли автоматически игрока за тим кил?", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_shake", "1", "Включить/выключить тряску экрана при попадании по своим", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Shake);
-	bShake = cvar.BoolValue;
+	cvShake = CreateConVar("sm_tk_shake", "1", "Включить/выключить тряску экрана при попадании по своим", _, true, _, true, 1.0);
 
-	cvar = CreateConVar("sm_tk_limit", "5", "Количество ТК очков, которое должен получить игрок, преред тем как будет наказан", _, true, 1.0, true, 700.0);
-	cvar.AddChangeHook(CVarChanged_TKLimit);
-	iTKLimit = cvar.IntValue;
+	cvTKLimit = CreateConVar("sm_tk_limit", "5", "Количество ТК очков, которое должен получить игрок, преред тем как будет наказан", _, true, 1.0, true, 700.0);
 	
-	cvar = CreateConVar("sm_tk_forgivemessage", "1", "Сообщения о прощении/наказании видят by. Никто(0), Все(1), Участники(2), Участники и Админы(3), Только Админы(4)", _, true, 0.0, true, 4.0);
-	cvar.AddChangeHook(CVarChanged_Forgive);
-	iForgive = cvar.IntValue;
+	cvForgive = CreateConVar("sm_tk_forgivemessage", "1", "Сообщения о прощении/наказании видят by. Никто(0), Все(1), Участники(2), Участники и Админы(3), Только Админы(4)", _, true, 0.0, true, 4.0);
 	
-	cvar = CreateConVar("sm_tk_countmessage", "2", "Кто видет посчёт TK Никто(0), Все(1), Игрок(2), Игрок и Админы(3), Только Админы(4)", _, true, 0.0, true, 4.0);
-	cvar.AddChangeHook(CVarChanged_Count);
-	iCount = cvar.IntValue;
+	cvCount = CreateConVar("sm_tk_countmessage", "2", "Кто видет посчёт TK Никто(0), Все(1), Игрок(2), Игрок и Админы(3), Только Админы(4)", _, true, 0.0, true, 4.0);
 
-	cvar = CreateConVar("sm_tk_punishmessage", "1", "Кто видет сообщения о наказании TK Никто(0), Все(1), Участники(2), Участники и Админы(3), Только Админы(4)", _, true, 0.0, true, 4.0);
-	cvar.AddChangeHook(CVarChanged_PunishMsg);
-	iPunishMsg = cvar.IntValue;
+	cvPunishMsg = CreateConVar("sm_tk_punishmessage", "1", "Кто видет сообщения о наказании TK Никто(0), Все(1), Участники(2), Участники и Админы(3), Только Админы(4)", _, true, 0.0, true, 4.0);
 
-	cvar = CreateConVar("sm_tk_kickmessage", "1", "Сообщения о КИКЕ игрока видят Никто(0), Все(1), Только Админы(2)", _, true, 0.0, true, 2.0);
-	cvar.AddChangeHook(CVarChanged_KickMsg);
-	iKickMsg = cvar.IntValue;
+	cvKickMsg = CreateConVar("sm_tk_kickmessage", "1", "Сообщения о КИКЕ игрока видят Никто(0), Все(1), Только Админы(2)", _, true, 0.0, true, 2.0);
 
-	cvar = CreateConVar("sm_tk_protecttime", "10", "Автоматическое убийство любого атакующего игрока в течении этого времени при воскрешении", _, true, 0.0, true, 240.0);
-	cvar.AddChangeHook(CVarChanged_SpawnProtect);
-	iSpawnProtect = cvar.IntValue;
+	cvSpawnProtect = CreateConVar("sm_tk_protecttime", "10", "Автоматическое убийство любого атакующего игрока в течении этого времени при воскрешении", _, true, 0.0, true, 240.0);
 
-	cvar = CreateConVar("sm_tk_immunity", "0", "Режим иммунитета админа Отключить(0), К отражению и убийсту при спавне(1), К КИКУ(2), Варианты 1.2(3), Ко всему(4), 1 и 4(5), 2 и 4(6), 1,2 и 4(7)", _, true, 0.0, true, 7.0);
-	cvar.AddChangeHook(CVarChanged_Immunity);
-	iImmunity = cvar.IntValue;
+	cvImmunity = CreateConVar("sm_tk_immunity", "0", "Режим иммунитета админа Отключить(0), К отражению и убийсту при спавне(1), К КИКУ(2), Варианты 1.2(3), Ко всему(4), 1 и 4(5), 2 и 4(6), 1,2 и 4(7)", _, true, 0.0, true, 7.0);
 
-	cvar = CreateConVar("sm_tk_punishmode", "1", "Режим дополнительных наказаний Нет(0), Выбирает жертва(1), Используется квар sm_tk_punishment(2)", _, true, 0.0, true, 2.0);
-	cvar.AddChangeHook(CVarChanged_PunishMode);
-	iPunishMode = cvar.IntValue;
+	cvPunishMode = CreateConVar("sm_tk_punishmode", "1", "Режим дополнительных наказаний Нет(0), Выбирает жертва(1), Используется квар sm_tk_punishment(2)", _, true, 0.0, true, 2.0);
 
-	cvar = CreateConVar("sm_tk_punishment", "1", "Наказание TK, если квар sm_tk_punishmode = 2. 0 - Warn, 1 - Slay, 2 - Burn, 3 - Freeze, 4 - Beacon, 5 - Freeze Bomb, 6 - Fire Bomb, 7 - Time Bomb, 8 - Drug, 9 - Remove % Cash, 10 - Slap", _, true, 0.0, true, 10.0);
-	cvar.AddChangeHook(CVarChanged_PunishMent);
-	iPunishMent = cvar.IntValue;
+	cvPunishMent = CreateConVar("sm_tk_punishment", "1", "Наказание TK, если квар sm_tk_punishmode = 2. 0 - Warn, 1 - Slay, 2 - Burn, 3 - Freeze, 4 - Beacon, 5 - Freeze Bomb, 6 - Fire Bomb, 7 - Time Bomb, 8 - Drug, 9 - Remove % Cash, 10 - Slap", _, true, 0.0, true, 10.0);
 	
-	cvar = CreateConVar("sm_tk_allowslay", "1", "Если квар sm_tk_punishmode = 1, то убить нападающего в качестве наказания", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Slay);
-	bSlay = cvar.BoolValue;
+	cvSlay = CreateConVar("sm_tk_allowslay", "1", "Если квар sm_tk_punishmode = 1, то убить нападающего в качестве наказания", _, true, _, true, 1.0);
 
-	cvar = CreateConVar("sm_tk_allowfreeze", "1", "Если квар sm_tk_punishmode = 1, то заморозить в качестве наказания", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Freeze);
-	bFreeze = cvar.BoolValue;
+	cvFreeze = CreateConVar("sm_tk_allowfreeze", "1", "Если квар sm_tk_punishmode = 1, то заморозить в качестве наказания", _, true, _, true, 1.0);
 
-	cvar = CreateConVar("sm_tk_allowbeacon", "1", "Если квар sm_tk_punishmode = 1, то поставить маяк в качестве наказания", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Beacon);
-	bBeacon = cvar.BoolValue;
+	cvBeacon = CreateConVar("sm_tk_allowbeacon", "1", "Если квар sm_tk_punishmode = 1, то поставить маяк в качестве наказания", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_allowfreezebomb", "1", "Если квар sm_tk_punishmode = 1, то замораживающая бомба в качестве наказания", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_FreezeBomb);
-	bFreezeBomb = cvar.BoolValue;
+	cvFreezeBomb = CreateConVar("sm_tk_allowfreezebomb", "1", "Если квар sm_tk_punishmode = 1, то замораживающая бомба в качестве наказания", _, true, _, true, 1.0);
 
-	cvar = CreateConVar("sm_tk_allowfirebomb", "1", "Если квар sm_tk_punishmode = 1, то огненная бомба в качестве наказания", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_FireBomb);
-	bFireBomb = cvar.BoolValue;
+	cvFireBomb = CreateConVar("sm_tk_allowfirebomb", "1", "Если квар sm_tk_punishmode = 1, то огненная бомба в качестве наказания", _, true, _, true, 1.0);
 
-	cvar = CreateConVar("sm_tk_allowtimebomb", "1", "Если квар sm_tk_punishmode = 1, то бомба замедленного действия в качестве наказания", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_TimeBomb);
-	bTimeBomb = cvar.BoolValue;
+	cvTimeBomb = CreateConVar("sm_tk_allowtimebomb", "1", "Если квар sm_tk_punishmode = 1, то бомба замедленного действия в качестве наказания", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_drugtime", "10.0", "Опьянить, время для наказания, для отключения 0", _, true, 0.0);
-	cvar.AddChangeHook(CVarChanged_DrugTime);
-	fDrugTime = cvar.FloatValue;
+	cvDrugTime = CreateConVar("sm_tk_drugtime", "10.0", "Опьянить, время для наказания, для отключения 0", _, true, 0.0);
 	
-	cvar = CreateConVar("sm_tk_damageratio", "0.7", "Коэффициент зеркального урона", _, true, 0.0);
-	cvar.AddChangeHook(CVarChanged_DamageRatio);
-	fDamageRatio = cvar.FloatValue;
+	cvDamageRatio = CreateConVar("sm_tk_damageratio", "0.7", "Коэффициент зеркального урона", _, true, 0.0);
 	
-	cvar = CreateConVar("sm_tk_amplitude", "50.0", "Сила тряски экрана при попадании по своим", _, true, 1.0, true, 100.0);
-	cvar.AddChangeHook(CVarChanged_ShakeAmp);
-	fShakeAmp = cvar.FloatValue;
+	cvShakeAmp = CreateConVar("sm_tk_amplitude", "50.0", "Сила тряски экрана при попадании по своим", _, true, 1.0, true, 100.0);
 	
-	cvar = CreateConVar("sm_tk_shaketime", "0.5", "Продолжительность тряски экрана при попадании по своим", _, true, 0.1, true, 100.0);
-	cvar.AddChangeHook(CVarChanged_ShakeTime);
-	fShakeTime = cvar.FloatValue;
+	cvShakeTime = CreateConVar("sm_tk_shaketime", "0.5", "Продолжительность тряски экрана при попадании по своим", _, true, 0.1, true, 100.0);
 	
-	cvar = CreateConVar("sm_tk_eyeangle", "15.0", "Рандомное значение смены угля экрана при выстрели по своим (дёргает прицел в сторону)", _, true, 0.0, true, 180.0);
-	cvar.AddChangeHook(CVarChanged_EyeAngle);
-	fEyeAngle = cvar.FloatValue;
+	cvEyeAngle = CreateConVar("sm_tk_eyeangle", "15.0", "Рандомное значение смены угля экрана при выстрели по своим (дёргает прицел в сторону)", _, true, 0.0, true, 180.0);
 	
-	cvar = CreateConVar("sm_tk_chickenspeed", "0.85", "Скорость курицы, 1.0 - стандартная скорость", _, true, 0.0, true, 50.0);
-	cvar.AddChangeHook(CVarChanged_ChickenSpeed);
-	fChickenSpeed = cvar.FloatValue;
+	cvChickenSpeed = CreateConVar("sm_tk_chickenspeed", "0.85", "Скорость курицы, 1.0 - стандартная скорость", _, true, 0.0, true, 50.0);
 
-	cvar = CreateConVar("sm_tk_burntime", "1", "Включить поджигание для наказания, для отключения 0", _, true, 0.0);
-	cvar.AddChangeHook(CVarChanged_Burn);
-	bBurn = cvar.BoolValue;
+	cvBurn = CreateConVar("sm_tk_burntime", "1", "Включить поджигание для наказания, для отключения 0", _, true, 0.0);
 	
-	cvar = CreateConVar("sm_tk_chicken", "1", "Включить превращение в курицу", _, true, 0.0);
-	cvar.AddChangeHook(CVarChanged_Chicken);
-	bChicken = cvar.BoolValue;
+	cvChicken = CreateConVar("sm_tk_chicken", "1", "Включить превращение в курицу", _, true, 0.0);
 
-	cvar = CreateConVar("sm_tk_slapdamage", "5", "Если квар sm_tk_punishmode = 1, то шлёпните с указнным уроном действия в качестве наказания", _, true, 0.0, true, 1000.0);
-	cvar.AddChangeHook(CVarChanged_SlapDamage);
-	iSlapDamage = cvar.IntValue;
+	cvSlapDamage = CreateConVar("sm_tk_slapdamage", "5", "Если квар sm_tk_punishmode = 1, то шлёпните с указнным уроном действия в качестве наказания", _, true, 0.0, true, 1000.0);
 
-	cvar = CreateConVar("sm_tk_bantime", "5", "Время бана при лимите TK", _, true, -1.0, true, 9999.0);
-	cvar.AddChangeHook(CVarChanged_BanTime);
-	iBanTime = cvar.IntValue;
+	cvBanTime = CreateConVar("sm_tk_bantime", "5", "Время бана при лимите TK", _, true, -1.0, true, 9999.0);
 	
-	cvar = CreateConVar("sm_tk_method", "3", "Способ наказания: 0 - Kick, 1 - Ban, 2 - SB Ban, 3 - MA Ban", _, true, 0.0, true, 3.0);
-	cvar.AddChangeHook(CVarChanged_Method);
-	iMethod = cvar.IntValue;
+	cvMethod = CreateConVar("sm_tk_method", "3", "Способ наказания: 0 - Kick, 1 - Ban, 2 - SB Ban, 3 - MA Ban", _, true, 0.0, true, 3.0);
 	
-	cvar = CreateConVar("sm_tk_limitdamag", "350", "Максимальное количество дамага по союзникам", _, true, 0.0);
-	cvar.AddChangeHook(CVarChanged_TKDmg);
-	iTKDmg = cvar.IntValue;
+	cvTKDmg = CreateConVar("sm_tk_limitdamag", "350", "Максимальное количество дамага по союзникам", _, true, 0.0);
 	
-	cvar = CreateConVar("sm_tk_subtractdmg", "50", "Количество урона вычитаемое в начале раунда при хорошем поведении", _, true, 0.0);
-	cvar.AddChangeHook(CVarChanged_SubtractDmg);
-	iSubtractDmg = cvar.IntValue;
+	cvSubtractDmg = CreateConVar("sm_tk_subtractdmg", "50", "Количество урона вычитаемое в начале раунда при хорошем поведении", _, true, 0.0);
 	
-	cvar = CreateConVar("sm_tk_removecash", "25", "Установить % денег, что заберёт жертва. Только CSS", _, true, 0.0, true, 100.0);
-	cvar.AddChangeHook(CVarChanged_RemoveCash);
-	iRemoveCash = cvar.IntValue;
+	cvRemoveCash = CreateConVar("sm_tk_removecash", "25", "Установить % денег, что заберёт жертва. Только CSS", _, true, 0.0, true, 100.0);
 	
-	cvar = CreateConVar("sm_tk_logging", "1", "Режим логов. Отключить(0), Подробно(1), только TK и kick(2), только kick(3)", _, true, 0.0, true, 3.0);
-	cvar.AddChangeHook(CVarChanged_Logs);
-	iLogs = cvar.IntValue;
+	cvLogs = CreateConVar("sm_tk_logging", "1", "Режим логов. Отключить(0), Подробно(1), только TK и kick(2), только kick(3)", _, true, 0.0, true, 3.0);
 	
-	cvar = CreateConVar("sm_tk_tkround", "2", "Количество раундов для хорошего поведения, для снятия 1 ТК убийства", _, true, 2.0, true, 100.0);
-	cvar.AddChangeHook(CVarChanged_TKRound);
-	iTKRound = cvar.IntValue;
+	cvTKRound = CreateConVar("sm_tk_tkround", "2", "Количество раундов для хорошего поведения, для снятия 1 ТК убийства", _, true, 2.0, true, 100.0);
 	
-	cvar = CreateConVar("sm_tk_msgfire", "1", "0 сообщение за урон по своим моментально убъёт, 1 огонь по своим будет активен через N секунд", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_MsgFire);
-	bMsgFire = cvar.BoolValue;
+	cvMsgFire = CreateConVar("sm_tk_msgfire", "1", "0 сообщение за урон по своим моментально убъёт, 1 огонь по своим будет активен через N секунд", _, true, _, true, 1.0);
 	
 	if(Engine_Version == GAME_CSGO)
 	{
-		hChicken = CreateConVar("sm_tk_models", "models/chicken/chicken.mdl", "Путь к модели mdl для превращения");
-		GetConVarString(hChicken, sChicken, sizeof(sChicken));
-		HookConVarChange(hChicken, OnConVarChanges_Chicken);
+		cvChickenModel = CreateConVar("sm_tk_models", "models/chicken/chicken.mdl", "Путь к модели mdl для превращения");
 	}
 	else
 	{
-		hChicken = CreateConVar("sm_tk_models", "models/lduke/chicken/chicken2.mdl", "Путь к модели mdl для превращения");
-		GetConVarString(hChicken, sChicken, sizeof(sChicken));
-		HookConVarChange(hChicken, OnConVarChanges_Chicken);
+		cvChickenModel = CreateConVar("sm_tk_models", "models/lduke/chicken/chicken2.mdl", "Путь к модели mdl для превращения");
 	}
 	
 	if(Engine_Version != GAME_CSGO)
 	{
-		cvar = CreateConVar("sm_tk_dmgreduction", "0.33", "Множитель урона по своим для подсчёта лимита урона", _, true, 0.0);
-		cvar.AddChangeHook(CVarChanged_DmgReduction);
-		fDmgReduction = cvar.FloatValue;
+		cvDmgReduction = CreateConVar("sm_tk_dmgreduction", "0.33", "Множитель урона по своим для подсчёта лимита урона", _, true, 0.0);
 	}
 	
-	cvar = CreateConVar("sm_tk_draw", "1", "Включить вид от 3 лица курице", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_Draw);
-	bDraw = cvar.BoolValue;
+	cvDraw = CreateConVar("sm_tk_draw", "1", "Включить вид от 3 лица курице", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_performfade", "1", "Включить краску экрана при атаке по союзнику", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_PerformFade);
-	bPerformFade = cvar.BoolValue;
+	cvPerformFade = CreateConVar("sm_tk_performfade", "1", "Включить краску экрана при атаке по союзнику", _, true, _, true, 1.0);
 	
-	cvar = CreateConVar("sm_tk_hudtexttkdmg", "1", "Включить оповещение лимита нанесённого урона в худе", _, true, _, true, 1.0);
-	cvar.AddChangeHook(CVarChanged_HudTextTKDmgEnable);
-	bHudTextTKDmgEnable = cvar.BoolValue;
+	cvHudTextTKDmgEnable = CreateConVar("sm_tk_hudtexttkdmg", "1", "Включить оповещение лимита нанесённого урона в худе", _, true, _, true, 1.0);
 	
 	char sBuffer[16];
 	(cvar = CreateConVar("sm_tk_hudtexttkdmg_pos", "0.35 -0.08", "Расположение. X/Y где X это горизонталь, а Y вертикаль")).AddChangeHook(CVarChanged_HudTextTKDmg_Position);
@@ -384,273 +296,23 @@ public void CVarChanged_HudTextTKDmg_Position(ConVar convar, const char[] oldVal
 	HudTextTKDmg_Position(sBuffer);
 }
 
-public void OnConVarChanges_Chicken(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	if(hChicken)
-	{
-		strcopy(sChicken, sizeof(sChicken), newValue);
-	}
-}
-
-public void CVarChanged_Enable(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bEnable	= cvar.BoolValue;
-}
-
-public void CVarChanged_HudTextTKDmgEnable(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bHudTextTKDmgEnable	= cvar.BoolValue;
-}
-
-public void CVarChanged_Debag(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bDebag	= cvar.BoolValue;
-}
-
-public void CVarChanged_Reflect(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bReflect = cvar.BoolValue;
-}
-
-public void CVarChanged_AutoKill(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bAutoKill = cvar.BoolValue;
-}
-
-public void CVarChanged_Shake(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bShake = cvar.BoolValue;
-}
-
-public void CVarChanged_TKLimit(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iTKLimit = cvar.IntValue;
-}
-
-public void CVarChanged_Forgive(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iForgive = cvar.IntValue;
-}
-
-public void CVarChanged_Count(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iCount = cvar.IntValue;
-}
-
-public void CVarChanged_PunishMsg(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iPunishMsg = cvar.IntValue;
-}
-
-public void CVarChanged_KickMsg(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iKickMsg = cvar.IntValue;
-}
-
-public void CVarChanged_SpawnProtect(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iSpawnProtect = cvar.IntValue;
-}
-
-public void CVarChanged_Immunity(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iImmunity = cvar.IntValue;
-}
-
-public void CVarChanged_PunishMode(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iPunishMode = cvar.IntValue;
-}
-
-public void CVarChanged_PunishMent(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iPunishMent = cvar.IntValue;
-}
-
-public void CVarChanged_Slay(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bSlay = cvar.BoolValue;
-}
-
-public void CVarChanged_Freeze(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bFreeze = cvar.BoolValue;
-}
-
-public void CVarChanged_Beacon(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bBeacon = cvar.BoolValue;
-}
-
-public void CVarChanged_FreezeBomb(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bFreezeBomb = cvar.BoolValue;
-}
-
-public void CVarChanged_FireBomb(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bFireBomb = cvar.BoolValue;
-}
-
-public void CVarChanged_TimeBomb(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bTimeBomb = cvar.BoolValue;
-}
-
-public void CVarChanged_DrugTime(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fDrugTime = cvar.FloatValue;
-}
-
-public void CVarChanged_DamageRatio(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fDamageRatio = cvar.FloatValue;
-}
-
-public void CVarChanged_ShakeAmp(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fShakeAmp = cvar.FloatValue;
-}
-
-public void CVarChanged_ShakeTime(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fShakeTime = cvar.FloatValue;
-}
-
-public void CVarChanged_EyeAngle(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fEyeAngle = cvar.FloatValue;
-}
-
-public void CVarChanged_Burn(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bBurn = cvar.BoolValue;
-}
-
-public void CVarChanged_Chicken(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bChicken = cvar.BoolValue;
-}
-
-public void CVarChanged_SlapDamage(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iSlapDamage = cvar.IntValue;
-}
-
-public void CVarChanged_BanTime(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iBanTime = cvar.IntValue;
-}
-
-public void CVarChanged_Method(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iMethod = cvar.IntValue;
-}
-
-public void CVarChanged_TKDmg(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iTKDmg = cvar.IntValue;
-}
-
-public void CVarChanged_SubtractDmg(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iSubtractDmg = cvar.IntValue;
-}
-
-public void CVarChanged_RemoveCash(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iRemoveCash = cvar.IntValue;
-}
-
-public void CVarChanged_Logs(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iLogs = cvar.IntValue;
-}
-
-public void CVarChanged_TKRound(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	iTKRound = cvar.IntValue;
-}
-
-public void CVarChanged_ChickenSpeed(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fChickenSpeed = cvar.FloatValue;
-}
-
-public void CVarChanged_MsgFire(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bMsgFire = cvar.BoolValue;
-}
-
-public void CVarChanged_DmgReduction(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	fDmgReduction = cvar.FloatValue;
-}
-
-public void CVarChanged_Draw(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bDraw = cvar.BoolValue;
-}
-
-public void CVarChanged_PerformFade(ConVar cvar, const char[] oldValue, const char[] newValue)
-{
-	bPerformFade = cvar.BoolValue;
-}
-
-public void OnEnableChanged(Handle cvar, const char[] oldval, const char[] newval)
-{
-	if (strcmp(oldval, newval) != 0)
-	{
-		if (strcmp(newval, "0") == 0)
-			UnhookEvent("player_death", Event_PlayerDeath);
-		else if (strcmp(newval, "1") == 0)
-			HookEvent("player_death", Event_PlayerDeath);
-	}
-}
-
-public void OnReflectChanged(Handle cvar, const char[] oldval, const char[] newval)
-{
-	if (strcmp(oldval, newval) != 0)
-	{
-		if (strcmp(newval, "0") == 0 && iSpawnProtect <= 0)
-			UnhookEvent("player_hurt", Event_PlayerHurt);
-		else if (strcmp(newval, "1") == 0)
-			HookEvent("player_hurt", Event_PlayerHurt);
-	}
-}
-
-public void OnProtectChanged(Handle cvar, const char[] oldval, const char[] newval)
-{
-	if (strcmp(oldval, newval) != 0)
-	{
-		if (StringToInt(newval) <= 0)
-		{
-			if(!bReflect)
-				UnhookEvent("player_hurt", Event_PlayerHurt);
-
-			UnhookEvent("player_spawn", Event_PlayerSpawn);
-		}
-		else
-		{
-			if(!bReflect)	//
-				HookEvent("player_hurt", Event_PlayerHurt);
-
-			HookEvent("player_spawn", Event_PlayerSpawn);
-		}
-	}
-}
-
 /*
 	Handlers to reset variables on disconnect and map start.
 */
 
 public void OnMapStart()
 {
-	Downloader_AddFileToDownloadsTable(sChicken);
-	if(sChicken[0]) PrecacheModel(sChicken);
+	char sBuffer[512];
+	cvChickenModel.GetString(sBuffer, sizeof(sBuffer));
+	
+	if(sBuffer[0])
+	{
+		Downloader_AddFileToDownloadsTable(sBuffer);
+		PrecacheModel(sBuffer);
+		sChicken = sBuffer;
+	}
 	
 	char sLink[64];
-	
 	BuildPath(Path_SM, sPath, sizeof(sPath), "logs/anti-tk");
 	
 	if(!DirExists(sPath))
@@ -670,7 +332,7 @@ public void OnClientDisconnect(int client)
 	ResetVariables(client);
 }
 
-public void ResetVariables(int client)
+void ResetVariables(int client)
 {
 	TKCount[client] = 0;
 	TKerClient[client] = -1;
@@ -685,7 +347,7 @@ public void ResetVariables(int client)
 	Also deal with spawn slaying not working in DoD:S
 */
 
-public void KillHandler(int victim, int attacker, bool spawn)
+void KillHandler(int victim, int attacker, bool spawn)
 {
 	//Нужно ли тут определение игры?
 	char sGameName[32];
@@ -705,7 +367,7 @@ public void KillHandler(int victim, int attacker, bool spawn)
 		{
 			//This code thanks to FeuerSturm.
 			int Team = GetClientTeam(attacker);
-			int OpTeam = Team == ALLIES ? AXIS : ALLIES;
+			int OpTeam = Team == 2 ? 3 : 2;
 
 			SecretTeamSwitch(attacker, OpTeam);
 			SecretTeamSwitch(attacker, Team);
@@ -735,7 +397,7 @@ public void KillHandler(int victim, int attacker, bool spawn)
 	if(Engine_Version == GAME_CSGO) CGOPrintToChat(attacker, sMsgSay);
 	else CPrintToChat(attacker, sMsgSay);
 
-	if(iLogs == 1)
+	if(cvLogs.IntValue == 1)
 	{
 		if(spawn) LogToFile(sPath, sMsg);
 		else LogToFile(sPath, sMsgLog);
@@ -750,9 +412,9 @@ public void KillHandler(int victim, int attacker, bool spawn)
 	when a player is being switched silently.
 */
 
-public Action Event_PlayerTeam(Handle event, const char[] name, bool dontBroadcast)
+Action Event_PlayerTeam(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 
 	if(HideTeamswitchMsg[client] == 1)
 	{
@@ -767,11 +429,11 @@ public Action Event_PlayerTeam(Handle event, const char[] name, bool dontBroadca
 	Used to kill players in spawn if there is built in spawn protection.
 */
 
-stock void SecretTeamSwitch(int iClient, int iNewTeam)
+stock void SecretTeamSwitch(int client, int iNewTeam)
 {
-	HideTeamswitchMsg[iClient] = 1;
-	ChangeClientTeam(iClient, iNewTeam);
-	ShowVGUIPanel(iClient, iNewTeam == AXIS ? "class_ger" : "class_us", INVALID_HANDLE, false);
+	HideTeamswitchMsg[client] = 1;
+	ChangeClientTeam(client, iNewTeam);
+	ShowVGUIPanel(client, iNewTeam == 3 ? "class_ger" : "class_us", INVALID_HANDLE, false);
 }
 
 //End of FeuerSturm's code.
@@ -781,11 +443,11 @@ stock void SecretTeamSwitch(int iClient, int iNewTeam)
 	Remembers spawn time for spawn attack protection.
 */
 
-public void Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcast)
+void Event_PlayerSpawn(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	int client = GetClientOfUserId(GetEventInt(event, "userid"));
+	int client = GetClientOfUserId(GetEventInt(hEvent, "userid"));
 	
-	if(iSpawnProtect > 0)
+	if(cvSpawnProtect.IntValue > 0)
 	{	
 		if(client > 0 && IsClientInGame(client))
 			SpawnTime[client] = GetTime();
@@ -795,7 +457,7 @@ public void Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcas
 	{
 		bKillAttaker[c] = false;
 		//SetEntPropFloat(client, Prop_Data, "m_flLaggedMovementValue", 1.0); 
-		if(bDebag) PrintToChatAll("Клиент [%N] | Индекс игрока [%d] | Значение индекса [%d]", client, c, bKillAttaker[c]);
+		if(cvDebag.BoolValue) PrintToChatAll("Клиент [%N] | Индекс игрока [%d] | Значение индекса [%d]", client, c, bKillAttaker[c]);
 
 		SetEntPropEnt(client, Prop_Send, "m_hObserverTarget", -1);
 		SetEntProp(client, Prop_Send, "m_iObserverMode", 0);
@@ -808,7 +470,7 @@ public void Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcas
 		KillTimer(hHudTextTKDmg);
 		hHudTextTKDmg = null;
 	}
-	if(bHudTextTKDmgEnable)
+	if(cvHudTextTKDmgEnable.BoolValue)
 		hHudTextTKDmg = CreateTimer(1.0, Timer_HudTextTKDmg, _, TIMER_REPEAT);
 }
 
@@ -819,9 +481,9 @@ public void Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcas
 	Имеет дело с отражением урона и убийством икры.
 */
 
-stock void SetEntityArmor(int iClient, int iArmor)
+stock void SetEntityArmor(int client, int iArmor)
 {
-	SetEntProp(iClient, Prop_Data, "m_ArmorValue", iArmor);
+	SetEntProp(client, Prop_Data, "m_ArmorValue", iArmor);
 }
 
 public void OnClientPutInServer(int client)
@@ -847,25 +509,25 @@ public Action Hook_TextMsg(UserMsg msg_id, Handle hBf, const char[] players, int
 	return Plugin_Continue;
 } 
 
-public void SayWarnings(int iClient, int iDmg, int iVictim)
+void SayWarnings(int client, int iDmg, int iVictim)
 {
-	if(!iTKDmg)
+	if(!cvTKDmg.IntValue)
 		return;
 	
-	//PrintToChat(iClient, "Сумма урона игрока [%N] - [%d]", iDmg, iTKDmgLimit[iClient]);
-	//PrintToChat(iClient, "Сумма урона игрока [%d] - [%d]", iDmg, iTKDmgLimit[iClient]);
-	if(Engine_Version == GAME_CSGO) CGOPrintToChat(iClient, "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[iClient], iTKDmg);
-	else CPrintToChat(iClient, "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[iClient], iTKDmg);
-	//PrintToChatAll("[%N] атаковал своего союзника [%N] !", iClient, iVictim);
+	//PrintToChat(client, "Сумма урона игрока [%N] - [%d]", iDmg, iTKDmgLimit[client]);
+	//PrintToChat(client, "Сумма урона игрока [%d] - [%d]", iDmg, iTKDmgLimit[client]);
+	if(Engine_Version == GAME_CSGO) CGOPrintToChat(client, "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[client], cvTKDmg.IntValue);
+	else CPrintToChat(client, "%t", "Tag", "Linit DMG", iDmg, iTKDmgLimit[client], cvTKDmg.IntValue);
+	//PrintToChatAll("[%N] атаковал своего союзника [%N] !", client, iVictim);
 	
-	for(int i = 1; i <= MaxClients; i++) if(IsClientInGame(i) && !IsFakeClient(i) && i != iClient)
+	for(int i = 1; i <= MaxClients; i++) if(IsClientInGame(i) && !IsFakeClient(i) && i != client)
 	{
-		if(Engine_Version == GAME_CSGO) CGOPrintToChat(i, "%t", "Tag", "Linit DMG All", iClient, iVictim);
-		else CPrintToChat(i, "%t", "Tag", "Linit DMG All", iClient, iVictim);
+		if(Engine_Version == GAME_CSGO) CGOPrintToChat(i, "%t", "Tag", "Linit DMG All", client, iVictim);
+		else CPrintToChat(i, "%t", "Tag", "Linit DMG All", client, iVictim);
 	}
 }
 
-public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage, int &iDamageType, int &Weapon, float fDamageForce[3], float fDamagePosition[3], int iDamageCustom)
+Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage, int &iDamageType, int &Weapon, float fDamageForce[3], float fDamagePosition[3], int iDamageCustom)
 {
 //	if(!iFriendlyFire)
 //		return Plugin_Handled;
@@ -887,21 +549,21 @@ public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &
 
 			SayWarnings(i, RoundFloat(fDamage * fDamage_reduction_bullets), iVictim);
 			
-			if(iTKDmgLimit[i] >= iTKDmg && iTKDmg)
+			if(iTKDmgLimit[i] >= cvTKDmg.IntValue && cvTKDmg.IntValue)
 			{
-				switch(iMethod)
+				switch(cvMethod.IntValue)
 				{
 					case 0: {
 						KickClient(iAttacker, sMsgKick);
 					}
 					case 1: {
-						BanClient(iAttacker, iBanTime, BANFLAG_AUTO, sMessage);
+						BanClient(iAttacker, cvBanTime.IntValue, BANFLAG_AUTO, sMessage);
 					}
 					case 2: {
-						SBPP_BanPlayer(0, iAttacker, iBanTime, sMessage);
+						SBPP_BanPlayer(0, iAttacker, cvBanTime.IntValue, sMessage);
 					}
 					case 3: {
-						MABanPlayer(0, iAttacker, MA_BAN_STEAM, iBanTime, sMessage);
+						MABanPlayer(0, iAttacker, MA_BAN_STEAM, cvBanTime.IntValue, sMessage);
 					}
 					default: {
 						LogError("Method not found");
@@ -917,31 +579,31 @@ public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &
 			//iTKDmgLimit[i] += RoundFloat(fDamage);
 			/*int iVictimLostHp = GetEventInt(event, "dmg_health");		//Потеряное ХП
 			int iVictimHealth = GetClientHealth(victim) + iVictimLostHp;	//Количесиво здоровья жертвы
-			int iAttackerHealth = GetClientHealth(attacker) - iVictimLostHp * RoundFloat(fDamageRatio);	//Количесиво здоровья атакера
+			int iAttackerHealth = GetClientHealth(attacker) - iVictimLostHp * RoundFloat(cvDamageRatio.FloatValue);	//Количесиво здоровья атакера
 			*/
-			iTKDmgLimit[i] += RoundFloat(fDamage * fDmgReduction);
+			iTKDmgLimit[i] += RoundFloat(fDamage * cvDmgReduction.FloatValue);
 			bTKRoundDmg[i] = true;
 			//PrintToChatAll("Сумма урона игрока [%N] - [%d]", i, iTKDmgLimit[i]);
 			//PrintToChatAll("Клиент [%N] | Индекс игрока [%d] | Значение индекса [%d]", iAttacker, i, iTKDmgLimit[i]);
 			//PrintToChatAll("Игрок [%N] нанёс [%.2f] урона [%N]", iAttacker, fDamage, iVictim);
 			
-			SayWarnings(i, RoundFloat(fDamage * fDmgReduction), iVictim);
+			SayWarnings(i, RoundFloat(fDamage * cvDmgReduction.FloatValue), iVictim);
 			
-			if(iTKDmgLimit[i] >= iTKDmg && iTKDmg)
+			if(iTKDmgLimit[i] >= cvTKDmg.IntValue && cvTKDmg.IntValue)
 			{
-				switch(iMethod)
+				switch(cvMethod.IntValue)
 				{
 					case 0: {
 						KickClient(iAttacker, sMsgKick);    
 					}
 					case 1: {
-						BanClient(iAttacker, iBanTime, BANFLAG_AUTO, sMessage);
+						BanClient(iAttacker, cvBanTime.IntValue, BANFLAG_AUTO, sMessage);
 					}
 					case 2: {
-						SBPP_BanPlayer(0, iAttacker, iBanTime, sMessage);
+						SBPP_BanPlayer(0, iAttacker, cvBanTime.IntValue, sMessage);
 					}
 					case 3: {
-						MABanPlayer(0, iAttacker, MA_BAN_STEAM, iBanTime, sMessage);
+						MABanPlayer(0, iAttacker, MA_BAN_STEAM, cvBanTime.IntValue, sMessage);
 					}
 					default: {
 						LogError("Method not found");
@@ -960,46 +622,46 @@ public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &
 	return Plugin_Continue;
 }
 
-public void Event_PlayerHurt(Handle event, const char[] name, bool dontBroadcast)
+void Event_PlayerHurt(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	if(!bEnable)
+	if(!cvEnable.BoolValue)
 		return;
 	
-	int victim = GetClientOfUserId(GetEventInt(event,"userid"));		//Жертва
-	int attacker = GetClientOfUserId(GetEventInt(event,"attacker"));	//Атакер
+	int victim = GetClientOfUserId(GetEventInt(hEvent,"userid"));		//Жертва
+	int attacker = GetClientOfUserId(GetEventInt(hEvent,"attacker"));	//Атакер
 	
 
 	if(attacker > 0 && IsClientInGame(attacker))
 	{
-		if((iImmunity == 1 || iImmunity == 3 || iImmunity == 7) && GetUserAdmin(attacker) != INVALID_ADMIN_ID)
+		if((cvImmunity.IntValue == 1 || cvImmunity.IntValue == 3 || cvImmunity.IntValue == 7) && GetUserAdmin(attacker) != INVALID_ADMIN_ID)
 			return;
 
 		bool bFf = false;
-		bool spawnAttack = ((GetTime() - SpawnTime[victim]) <= iSpawnProtect);
+		bool spawnAttack = ((GetTime() - SpawnTime[victim]) <= cvSpawnProtect.IntValue);
 		float fVec[3];
 
-		if(bReflect || spawnAttack)		//Зеркальный урон, Убийство при атаке на респе
+		if(cvReflect.BoolValue || spawnAttack)		//Зеркальный урон, Убийство при атаке на респе
 		{
 			if(victim > 0 && IsClientInGame(victim))
 			{
 				if(IsPlayerAlive(attacker) && GetClientTeam(attacker) == GetClientTeam(victim) && victim != attacker)
 				{
 					/*char weapon[15];
-					GetEventString(event, "weapon_", weapon, 15);
+					GetEventString(hEvent, "weapon_", weapon, 15);
 					GetClientWeapon(attacker, weapon, 32);*/
 
 					if(attacker && spawnAttack || attacker && !bTypeDmgGrenade && !spawnAttack)
 					{
 					//	PrintToChatAll("Игрок [%N] с оружием [%s]", attacker, weapon);
 						//ХП
-						int iVictimLostHp = GetEventInt(event, "dmg_health");		//Потеряное ХП
+						int iVictimLostHp = GetEventInt(hEvent, "dmg_health");		//Потеряное ХП
 						int iVictimHealth = GetClientHealth(victim) + iVictimLostHp;	//Количесиво здоровья жертвы
-						int iAttackerHealth = GetClientHealth(attacker) - iVictimLostHp * RoundFloat(fDamageRatio);	//Количесиво здоровья атакера
+						int iAttackerHealth = GetClientHealth(attacker) - iVictimLostHp * RoundFloat(cvDamageRatio.FloatValue);	//Количесиво здоровья атакера
 						
 						//Бронь
-						int iVictimLostAr = GetEventInt(event, "dmg_armor");		//Потеряное ХП
+						int iVictimLostAr = GetEventInt(hEvent, "dmg_armor");		//Потеряное ХП
 						int iVictimAr = GetClientHealth(victim) + iVictimLostAr;	//Количесиво здоровья жертвы
-						int iAttackerAr = GetClientHealth(attacker) - iVictimLostAr * RoundFloat(fDamageRatio);	//Количесиво здоровья атакера
+						int iAttackerAr = GetClientHealth(attacker) - iVictimLostAr * RoundFloat(cvDamageRatio.FloatValue);	//Количесиво здоровья атакера
 
 						if(iVictimHealth > 100 && bFf)		//Если количество хп больше 100
 						{
@@ -1024,10 +686,10 @@ public void Event_PlayerHurt(Handle event, const char[] name, bool dontBroadcast
 							SetEntityHealth(attacker, iAttackerHealth);		//Изменить здоровья атакера
 							SetEntityArmor(attacker, iAttackerAr);
 							//PrintToChatAll("Здоровья [%N] изменено на [%d]", attacker, iAttackerHealth);
-							//PrintToChatAll("Множитель урона [%.2f]", fDamageRatio);
+							//PrintToChatAll("Множитель урона [%.2f]", cvDamageRatio.FloatValue);
 							
-							if(bShake) Shake(attacker);
-							if(bPerformFade)
+							if(cvShake.BoolValue) Shake(attacker);
+							if(cvPerformFade.BoolValue)
 							{
 								if(GetClientTeam(attacker) == 2)
 								{
@@ -1049,8 +711,8 @@ public void Event_PlayerHurt(Handle event, const char[] name, bool dontBroadcast
 								}
 							}
 							GetClientEyeAngles(attacker, fVec);		
-							fVec[0] += GetRandomFloat(-fEyeAngle, fEyeAngle);
-							fVec[1] += GetRandomFloat(-fEyeAngle, fEyeAngle);
+							fVec[0] += GetRandomFloat(-cvEyeAngle.FloatValue, cvEyeAngle.FloatValue);
+							fVec[1] += GetRandomFloat(-cvEyeAngle.FloatValue, cvEyeAngle.FloatValue);
 							TeleportEntity(attacker, NULL_VECTOR, fVec, NULL_VECTOR);
 							//PrintToChatAll("Позиция взгляда игрока [%N] сменилась на [%f]", attacker, fVec);
 						}
@@ -1061,29 +723,29 @@ public void Event_PlayerHurt(Handle event, const char[] name, bool dontBroadcast
 	}
 }
 
-stock void Shake(int iClient)
+stock void Shake(int client)
 {
 	if(Engine_Version == GAME_CSGO) 
 	{
-		Handle hBf = StartMessageOne("Shake", iClient);
+		Handle hBf = StartMessageOne("Shake", client);
 		if(hBf != INVALID_HANDLE)
 		{
 			PbSetInt(hBf, "command", 0);  
-			PbSetFloat(hBf, "local_amplitude", fShakeAmp);  
+			PbSetFloat(hBf, "local_amplitude", cvShakeAmp.FloatValue);  
 			PbSetFloat(hBf, "frequency", 1.0);  
-			PbSetFloat(hBf, "duration", fShakeTime);  
+			PbSetFloat(hBf, "duration", cvShakeTime.FloatValue);  
 			EndMessage();
 		}
 	}
 	else
 	{
-		Handle hBf = StartMessageOne("Shake", iClient);
+		Handle hBf = StartMessageOne("Shake", client);
 		if(hBf != INVALID_HANDLE)
 		{
 			BfWriteByte(hBf,  0);
-			BfWriteFloat(hBf, fShakeAmp);
+			BfWriteFloat(hBf, cvShakeAmp.FloatValue);
 			BfWriteFloat(hBf, 1.0);
-			BfWriteFloat(hBf, fShakeTime);
+			BfWriteFloat(hBf, cvShakeTime.FloatValue);
 			EndMessage();
 		}
 	}
@@ -1137,20 +799,20 @@ Action Timer_HudTextTKDmg(Handle hTimer)
 	
 	for(int i = 1; i <= MaxClients; i++) if(i && IsClientInGame(i) && !IsFakeClient(i)) 
 	{
-		FormatEx(sTKDmg, sizeof(sTKDmg), "%T", "Hud Text TKDmg", i, iTKDmgLimit[i], iTKDmg);
+		FormatEx(sTKDmg, sizeof(sTKDmg), "%T", "Hud Text TKDmg", i, iTKDmgLimit[i], cvTKDmg.IntValue);
 		ShowHudText(i, -1, sTKDmg);
 	}
 	return Plugin_Continue;
 }
 
-public void HudText(int userid)
+void HudText(int userid)
 {
-	if(!bMsgFire)
+	if(!cvMsgFire.BoolValue)
 	{
 		int client = GetClientOfUserId(userid);
 		char sFft[256], sFfct[256];
-		FormatEx(sFft, sizeof(sFft), "%T", "Fire on your own is prohibited T", client, iSpawnProtect);
-		FormatEx(sFfct, sizeof(sFfct), "%T", "Fire on your own is prohibited CT", client, iSpawnProtect);
+		FormatEx(sFft, sizeof(sFft), "%T", "Fire on your own is prohibited T", client, cvSpawnProtect.IntValue);
+		FormatEx(sFfct, sizeof(sFfct), "%T", "Fire on your own is prohibited CT", client, cvSpawnProtect.IntValue);
 		
 		int iClr_t[4], iClr_t2[4], iClr_ct[4], iClr_ct2[4];
 		iClr_t[0] = GetRandomInt(250, 255);
@@ -1171,10 +833,10 @@ public void HudText(int userid)
 		iClr_ct2[2] = GetRandomInt(250, 255);
 		iClr_ct2[3] = 255;
 		
-		//float fSpawnProtect = view_as<float>(iSpawnProtect);
-		float fSpawnProtect = float(iSpawnProtect);
+		//float fSpawnProtect = view_as<float>(cvSpawnProtect.IntValue);
+		float fSpawnProtect = float(cvSpawnProtect.IntValue);
 		
-		if(iSpawnProtect > 0)
+		if(cvSpawnProtect.IntValue > 0)
 		{
 			SetHudTextParamsEx(-1.0, 0.8, fSpawnProtect, iClr_t, iClr_t2, 2, 0.1, 0.1, 0.1);
 			for(int i = 1; i <= MaxClients; i++) if(i && IsClientInGame(i) && !IsFakeClient(i) && GetClientTeam(i) == CS_TEAM_T) 
@@ -1193,8 +855,8 @@ public void HudText(int userid)
 	{
 		int client = GetClientOfUserId(userid);
 		char sFft[256], sFfct[256];
-		FormatEx(sFft, sizeof(sFft), "%T", "Fire on your own is blocked T", client, iSpawnProtect);
-		FormatEx(sFfct, sizeof(sFfct), "%T", "Fire on your own is blocked CT", client, iSpawnProtect);
+		FormatEx(sFft, sizeof(sFft), "%T", "Fire on your own is blocked T", client, cvSpawnProtect.IntValue);
+		FormatEx(sFfct, sizeof(sFfct), "%T", "Fire on your own is blocked CT", client, cvSpawnProtect.IntValue);
 		
 		int iClr_t[4], iClr_t2[4], iClr_ct[4], iClr_ct2[4];
 		iClr_t[0] = GetRandomInt(250, 255);
@@ -1215,10 +877,10 @@ public void HudText(int userid)
 		iClr_ct2[2] = GetRandomInt(250, 255);
 		iClr_ct2[3] = 255;
 		
-		//float fSpawnProtect = view_as<float>(iSpawnProtect);
-		float fSpawnProtect = float(iSpawnProtect);
+		//float fSpawnProtect = view_as<float>(cvSpawnProtect.IntValue);
+		float fSpawnProtect = float(cvSpawnProtect.IntValue);
 		
-		if(iSpawnProtect > 0)
+		if(cvSpawnProtect.IntValue > 0)
 		{
 			SetHudTextParamsEx(-1.0, 0.8, fSpawnProtect, iClr_t, iClr_t2, 2, 0.1, 0.1, 0.1);
 			for(int i = 1; i <= MaxClients; i++) if(i && IsClientInGame(i) && !IsFakeClient(i) && GetClientTeam(i) == CS_TEAM_T) 
@@ -1244,7 +906,7 @@ Action HudTimer(Handle timer, any client)
 
 Action tFriendlyFire(Handle timer, any client)
 {
-	if(bMsgFire)
+	if(cvMsgFire.BoolValue)
 	{
 		//ServerCommand("mp_friendlyfire 1");
 		iFriendlyFire = 1;
@@ -1258,9 +920,9 @@ Action tFriendlyFire(Handle timer, any client)
 
 void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 {
-//	if(bMsgFire) bFriendlyFire = true;
+//	if(cvMsgFire.BoolValue) bFriendlyFire = true;
 //	else bFriendlyFire = false;
-	if(bMsgFire)
+	if(cvMsgFire.BoolValue)
 	{
 		//ServerCommand("mp_friendlyfire 0");
 		iFriendlyFire = 0;
@@ -1275,12 +937,12 @@ void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 		SetConVarInt(hFriendlyFire, iFriendlyFire);
 	}
 	int client = GetClientOfUserId(GetEventInt(event, "userid"));
-	//float fSpawnProtect = view_as<float>(iSpawnProtect);
-	//float fSpawnProtect = GetConVarFloat(iSpawnProtect);
-	float fSpawnProtect = float(iSpawnProtect);
+	//float fSpawnProtect = view_as<float>(cvSpawnProtect.IntValue);
+	//float fSpawnProtect = GetConVarFloat(cvSpawnProtect.IntValue);
+	float fSpawnProtect = float(cvSpawnProtect.IntValue);
 
 	CreateTimer(1.0, HudTimer, client);
-	if(bMsgFire) CreateTimer(fSpawnProtect + 1.0, tFriendlyFire, client);
+	if(cvMsgFire.BoolValue) CreateTimer(fSpawnProtect + 1.0, tFriendlyFire, client);
 	
 	for(int g = 1; g <= MaxClients; g++) if(IsClientInGame(g))
 	{
@@ -1294,7 +956,7 @@ void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 		{
 			iTKRoundLimit[g]++;
 		}
-		if(iTKRoundLimit[g] == iTKRound)
+		if(iTKRoundLimit[g] == cvTKRound.IntValue)
 		{
 			iTKRoundLimit[g] = 0;
 			if(TKCount[g] > 0)
@@ -1302,8 +964,8 @@ void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 		}
 		if(TKCount[g] > 0)
 		{
-			if(Engine_Version == GAME_CSGO) CGOPrintToChat(g, "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], iTKLimit);
-			else CPrintToChat(g, "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], iTKLimit);
+			if(Engine_Version == GAME_CSGO) CGOPrintToChat(g, "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], cvTKLimit.IntValue);
+			else CPrintToChat(g, "%t", "Tag", "TK alerts at the beginning of the round", TKCount[g], cvTKLimit.IntValue);
 		}
 		
 		if(bTKRoundDmg[g] == false)
@@ -1311,10 +973,10 @@ void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 			//PrintToChat(g, "Урон игрока до [%N] | [%d]", g, iTKDmgLimit[g]);
 			if(iTKDmgLimit[g] > 0)
 			{
-				if(Engine_Version == GAME_CSGO) CGOPrintToChat(g, "%t", "Tag", "Good behavior dmg msg", iSubtractDmg, iTKDmgLimit[g], iTKDmg);
-				else CPrintToChat(g, "%t", "Tag", "Good behavior dmg msg", iSubtractDmg, iTKDmgLimit[g], iTKDmg);
+				if(Engine_Version == GAME_CSGO) CGOPrintToChat(g, "%t", "Tag", "Good behavior dmg msg", cvSubtractDmg.IntValue, iTKDmgLimit[g], cvTKDmg.IntValue);
+				else CPrintToChat(g, "%t", "Tag", "Good behavior dmg msg", cvSubtractDmg.IntValue, iTKDmgLimit[g], cvTKDmg.IntValue);
 			}
-			iTKDmgLimit[g] -= iSubtractDmg;
+			iTKDmgLimit[g] -= cvSubtractDmg.IntValue;
 			
 			if(0 > iTKDmgLimit[g]) iTKDmgLimit[g] = 0;
 			//PrintToChat(g, "Урон игрока после [%N] | [%d]", g, iTKDmgLimit[g]);
@@ -1336,54 +998,54 @@ public Action Event_OnEnd(Handle event, const char[] name, bool dontBroadcast)
 	Also handles reflecting a kill back onto the attacker.
 */
 
-public void Event_PlayerDeath(Handle event, const char[] name, bool dontBroadcast)
+void Event_PlayerDeath(Event hEvent, const char[] name, bool dontBroadcast)
 {
-	if(bEnable)
+	if(!cvEnable.BoolValue)
+		return;
+
+	int victim = GetClientOfUserId(GetEventInt(hEvent, "userid"));
+	int attacker = GetClientOfUserId(GetEventInt(hEvent, "attacker"));
+	
+	for(int c = 1; c <= MaxClients; c++) if(c == victim)
 	{
-		int victim = GetClientOfUserId(GetEventInt(event, "userid"));
-		int attacker = GetClientOfUserId(GetEventInt(event, "attacker"));
-		
-		for(int c = 1; c <= MaxClients; c++) if(c == victim)
+		bKillAttaker[c] = false;
+		if(cvDebag.BoolValue) PrintToChatAll("Игрока [%N] | Индекс игрока [%d] | Значение индекса [%d]", victim, c, bKillAttaker[c]);
+	}
+	if(attacker > 0 && victim > 0 && IsClientInGame(attacker) && IsClientInGame(victim))
+	{
+		if(GetClientTeam(attacker) == GetClientTeam(victim) && victim != attacker)
 		{
-			bKillAttaker[c] = false;
-			if(bDebag) PrintToChatAll("Игрока [%N] | Индекс игрока [%d] | Значение индекса [%d]", victim, c, bKillAttaker[c]);
-		}
-		if(attacker > 0 && victim > 0 && IsClientInGame(attacker) && IsClientInGame(victim))
-		{
-			if(GetClientTeam(attacker) == GetClientTeam(victim) && victim != attacker)
+			if((cvImmunity.IntValue == 6 || cvImmunity.IntValue == 7) && GetUserAdmin(attacker) != INVALID_ADMIN_ID)
 			{
-				if((iImmunity == 6 || iImmunity == 7) && GetUserAdmin(attacker) != INVALID_ADMIN_ID)
+				char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], ForgiveMsg[128];
+
+				GetClientName(attacker, attackerName, MAX_NAME_LENGTH);
+				GetClientName(victim, victimName, MAX_NAME_LENGTH);
+				Format(ForgiveMsg, sizeof(ForgiveMsg), "%t", "Auto Forgave Admin", victimName, attackerName);
+
+				DoChat(victim, attacker, ForgiveMsg, ForgiveMsg, cvForgive.IntValue, false);
+				return;
+			}
+
+			if(IsPlayerAlive(attacker) && cvAutoKill.BoolValue)
+			{
+				if((cvImmunity.IntValue != 1 && cvImmunity.IntValue != 3 && cvImmunity.IntValue != 5 && cvImmunity.IntValue != 7) || GetUserAdmin(attacker) == INVALID_ADMIN_ID)
 				{
-					char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], ForgiveMsg[128];
-
-					GetClientName(attacker, attackerName, MAX_NAME_LENGTH);
-					GetClientName(victim, victimName, MAX_NAME_LENGTH);
-					Format(ForgiveMsg, sizeof(ForgiveMsg), "%t", "Auto Forgave Admin", victimName, attackerName);
-
-					DoChat(victim, attacker, ForgiveMsg, ForgiveMsg, iForgive, false);
-					return;
+					KillHandler(victim, attacker, false);
 				}
+			}
 
-				if(IsPlayerAlive(attacker) && bAutoKill)
-				{
-					if((iImmunity != 1 && iImmunity != 3 && iImmunity != 5 && iImmunity != 7) || GetUserAdmin(attacker) == INVALID_ADMIN_ID)
-					{
-						KillHandler(victim, attacker, false);
-					}
-				}
+			if(TKerClient[victim] == -1)
+				ForgiveMenu(attacker, victim);
+			else
+			{
+				char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], ForgiveMsg[128];
 
-				if(TKerClient[victim] == -1)
-					ForgiveMenu(attacker, victim);
-				else
-				{
-					char attackerName[MAX_NAME_LENGTH], victimName[MAX_NAME_LENGTH], ForgiveMsg[128];
+				GetClientName(attacker, attackerName, MAX_NAME_LENGTH);
+				GetClientName(victim, victimName, MAX_NAME_LENGTH);
+				Format(ForgiveMsg, sizeof(ForgiveMsg), "%t", "Auto Forgave", victimName, attackerName);
 
-					GetClientName(attacker, attackerName, MAX_NAME_LENGTH);
-					GetClientName(victim, victimName, MAX_NAME_LENGTH);
-					Format(ForgiveMsg, sizeof(ForgiveMsg), "%t", "Auto Forgave", victimName, attackerName);
-
-					DoChat(victim, attacker, ForgiveMsg, ForgiveMsg, iForgive, false);
-				}
+				DoChat(victim, attacker, ForgiveMsg, ForgiveMsg, cvForgive.IntValue, false);
 			}
 		}
 	}
@@ -1393,7 +1055,7 @@ public void Event_PlayerDeath(Handle event, const char[] name, bool dontBroadcas
 	Forgive menu handlers.
 */
 
-public Action ForgiveMenu(int iAttacker, int iVictim)
+Action ForgiveMenu(int iAttacker, int iVictim)
 {
 	if(iAttacker <= MaxClients && iVictim <= MaxClients && iAttacker && iVictim && IsClientInGame(iAttacker) && IsClientInGame(iVictim))
 	{
@@ -1418,7 +1080,7 @@ public Action ForgiveMenu(int iAttacker, int iVictim)
 	return Plugin_Handled;
 }
 
-public int AdminMenuHandler(Handle hMenu, MenuAction action, int client, int itemNum)
+public int AdminMenuHandler(Menu hMenu, MenuAction action, int client, int itemNum)
 {
 	if ( action == MenuAction_Select )
 	{
@@ -1440,7 +1102,7 @@ public int AdminMenuHandler(Handle hMenu, MenuAction action, int client, int ite
 					char ForgiveMsg[128];
 					Format(ForgiveMsg, sizeof(ForgiveMsg), "%t", "Forgave", victimName, attackerName);
 
-					DoChat(client, attacker, ForgiveMsg, ForgiveMsg, iForgive, false);
+					DoChat(client, attacker, ForgiveMsg, ForgiveMsg, cvForgive.IntValue, false);
 				}
 				else if(strcmp(info, "no") == 0)
 					DidNotForgive(attacker, client, victimName);
@@ -1463,7 +1125,7 @@ public int AdminMenuHandler(Handle hMenu, MenuAction action, int client, int ite
 	Punishment menu handlers.
 */
 
-public Action PunishMenu(int victim, int attacker)
+Action PunishMenu(int victim, int attacker)
 {
 	if(attacker <= MaxClients && victim <= MaxClients && attacker > 0 && victim)
 	{
@@ -1479,80 +1141,80 @@ public Action PunishMenu(int victim, int attacker)
 			SetMenuTitle(menu, "%t", "PunishMenu", attackerName);
 
 			char warn[128];
-			Format(warn, sizeof(warn), "%t", "Warn", TKCount[attacker], iTKLimit);
+			Format(warn, sizeof(warn), "%t", "Warn", TKCount[attacker], cvTKLimit.IntValue);
 			AddMenuItem(menu, "warn", warn);
 
-			if(iSlapDamage > 0)
+			if(cvSlapDamage.IntValue > 0)
 			{
 				char slap[128];
 				Format(slap, sizeof(slap), "%t", "Slap");
 				AddMenuItem(menu, "slap", slap);
 			}
 
-			if(bSlay)
+			if(cvSlay.BoolValue)
 			{
 				char slay[128];
 				Format(slay, sizeof(slay), "%t", "Slay");
 				AddMenuItem(menu, "slay", slay);
 			}
 
-			if(bBurn == true)
+			if(cvBurn.BoolValue == true)
 			{
 				char burn[128];
 				Format(burn, sizeof(burn), "%t", "Burn");
 				AddMenuItem(menu, "burn", burn);
 			}
 
-			if(bFreeze)
+			if(cvFreeze.BoolValue)
 			{
 				char freeze[128];
 				Format(freeze, sizeof(freeze), "%t", "Freeze");
 				AddMenuItem(menu, "freeze", freeze);
 			}
 
-			if(bBeacon)
+			if(cvBeacon.BoolValue)
 			{
 				char beacon[128];
 				Format(beacon, sizeof(beacon), "%t", "Beacon");
 				AddMenuItem(menu, "beacon", beacon);
 			}
 
-			if(bFreezeBomb)
+			if(cvFreezeBomb.BoolValue)
 			{
 				char freezebomb[128];
 				Format(freezebomb, sizeof(freezebomb), "%t", "FreezeBomb");
 				AddMenuItem(menu, "freezebomb", freezebomb);
 			}
 
-			if(bFireBomb)
+			if(cvFireBomb.BoolValue)
 			{
 				char firebomb[128];
 				Format(firebomb, sizeof(firebomb), "%t", "FireBomb");
 				AddMenuItem(menu, "firebomb", firebomb);
 			}
 
-			if(bTimeBomb)
+			if(cvTimeBomb.BoolValue)
 			{
 				char timebomb[128];
 				Format(timebomb, sizeof(timebomb), "%t", "TimeBomb");
 				AddMenuItem(menu, "timebomb", timebomb);
 			}
 
-			if(fDrugTime > 0)
+			if(cvDrugTime.FloatValue > 0)
 			{
 				char drug[128];
 				Format(drug, sizeof(drug), "%t", "Drug");
 				AddMenuItem(menu, "drug", drug);
 			}
 
-			if(Engine_Version != GAME_CSGO && iRemoveCash > 0)
+			if(Engine_Version != GAME_CSGO && cvRemoveCash.IntValue > 0)
 			{
 				char cash[128];
-				Format(cash, sizeof(cash), "%t", "RemoveCash", iRemoveCash);
+				Format(cash, sizeof(cash), "%t", "RemoveCash", cvRemoveCash.IntValue);
 				AddMenuItem(menu, "removecash", cash);
 			}
 			
-			if(bChicken)
+			if(cvChicken.BoolValue)
 			{
 				char sModelsSay[128];		//Курица
 				Format(sModelsSay, sizeof(sModelsSay), "%t", "Menu_Model");
@@ -1566,7 +1228,7 @@ public Action PunishMenu(int victim, int attacker)
 	return Plugin_Handled;
 }
 
-public int PunishMenuHandler(Handle hMenu, MenuAction action, int client, int itemNum)
+public int PunishMenuHandler(Menu hMenu, MenuAction action, int client, int itemNum)
 {
 	if ( action == MenuAction_Select )
 	{
@@ -1586,7 +1248,7 @@ public int PunishMenuHandler(Handle hMenu, MenuAction action, int client, int it
 				{
 					PunishmentClient[attacker] = info;
 					CreateTimer(5.0, WaitForSpawn, attacker, TIMER_FLAG_NO_MAPCHANGE);
-					if(bDebag) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 2", attacker, 5.0);
+					if(cvDebag.BoolValue) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 2", attacker, 5.0);
 				}
 			}
 		}
@@ -1626,7 +1288,7 @@ public int PunishMenuHandler(Handle hMenu, MenuAction action, int client, int it
 					{
 						PunishmentClient[attacker] = info;
 						CreateTimer(5.0, WaitForSpawn, attacker, TIMER_FLAG_NO_MAPCHANGE);
-						if(bDebag) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 2", attacker, 5.0);
+						if(cvDebag.BoolValue) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 2", attacker, 5.0);
 					}
 				}
 			}
@@ -1643,52 +1305,52 @@ public int PunishMenuHandler(Handle hMenu, MenuAction action, int client, int it
 	Сделал его функцией, потому что я использовал его дважды.
 */
 
-public void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LENGTH])
+void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LENGTH])
 {
 	if(attacker > 0 && client > 0 && IsClientInGame(attacker) && IsClientInGame(client))
 	{
 		char sNameAttaker[MAX_NAME_LENGTH];
 		GetClientName(attacker, sNameAttaker, MAX_NAME_LENGTH);
 
-		if((iImmunity != 2 && iImmunity != 3 && iImmunity != 6 && iImmunity != 7) || GetUserAdmin(attacker) == INVALID_ADMIN_ID)
+		if((cvImmunity.IntValue != 2 && cvImmunity.IntValue != 3 && cvImmunity.IntValue != 6 && cvImmunity.IntValue != 7) || GetUserAdmin(attacker) == INVALID_ADMIN_ID)
 		{
 			TKCount[attacker] = TKCount[attacker] + 1;
 			bTKRoundKill[attacker] = true;
-			if(bDebag)
+			if(cvDebag.BoolValue)
 			{
 				if(bTKRoundKill[attacker] == true)
 					for(int g = 1; g <= MaxClients; g++) if(g == attacker) PrintToChatAll("У игрока [%N] | Индекс игрока [%d] | Убил ли он в этом раунде? - [%d]", attacker, g, bTKRoundKill[g]);
 			}
-			if(bDebag)
+			if(cvDebag.BoolValue)
 			{
 				for(int g = 1; g <= MaxClients; g++) if(g == attacker)
 				{
-					PrintToChatAll("У игрока [%N] | Индекс игрока [%d] | Количество TK [%d]/[%d]", attacker, g, TKCount[attacker], iTKLimit);
+					PrintToChatAll("У игрока [%N] | Индекс игрока [%d] | Количество TK [%d]/[%d]", attacker, g, TKCount[attacker], cvTKLimit.IntValue);
 					//PrintToChatAll("Убийца [%N] | Индекс игрока [%d] | Значение индекса [%d]", attacker, c, bKillAttaker[c]);
 				}
 			}
 			
-			if(iCount > 0 && iCount < 5)
+			if(cvCount.IntValue > 0 && cvCount.IntValue < 5)
 			{
 				char TKCountMsg[128];
-				Format(TKCountMsg, sizeof(TKCountMsg), "%t", "TK Count Others", sNameAttaker, TKCount[attacker], iTKLimit);
+				Format(TKCountMsg, sizeof(TKCountMsg), "%t", "TK Count Others", sNameAttaker, TKCount[attacker], cvTKLimit.IntValue);
 				char TKCountMsg2[128];
-				Format(TKCountMsg2, sizeof(TKCountMsg2), "%t", "TK Count", TKCount[attacker], iTKLimit);
+				Format(TKCountMsg2, sizeof(TKCountMsg2), "%t", "TK Count", TKCount[attacker], cvTKLimit.IntValue);
 
-				DoChat(client, attacker, TKCountMsg, TKCountMsg2, iCount, true);
+				DoChat(client, attacker, TKCountMsg, TKCountMsg2, cvCount.IntValue, true);
 			}
 		}
 
-		if(iForgive > 0 && iForgive < 5)
+		if(cvForgive.IntValue > 0 && cvForgive.IntValue < 5)
 		{
 			char DidNotForgiveMsg[128];
 			Format(DidNotForgiveMsg, sizeof(DidNotForgiveMsg), "%t", "Did Not Forgive", sNameVictim, sNameAttaker);
 
-			DoChat(client, attacker, DidNotForgiveMsg, DidNotForgiveMsg, iForgive, false);
+			DoChat(client, attacker, DidNotForgiveMsg, DidNotForgiveMsg, cvForgive.IntValue, false);
 		}
 		
 		//Бан
-		if(TKCount[attacker] >= iTKLimit)
+		if(TKCount[attacker] >= cvTKLimit.IntValue)
 		{
 			char sSteamID_Attaker[32];
 			GetClientAuthId(attacker, AuthId_Steam2, sSteamID_Attaker, 31);
@@ -1697,35 +1359,35 @@ public void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LE
 			FormatEx(sMessage, sizeof(sMessage), "%T", "TK Limit Reached", attacker);
 			FormatEx(sMsgKick, sizeof(sMsgKick), "%T", "Kicked Attaker", attacker);
 
-			switch(iMethod)
+			switch(cvMethod.IntValue)
 			{
 				case 0: {
 					KickClient(attacker, sMsgKick);    
 				}
 				case 1: {
-					BanClient(attacker, iBanTime, BANFLAG_AUTO, sMessage);
+					BanClient(attacker, cvBanTime.IntValue, BANFLAG_AUTO, sMessage);
 				}
 				case 2: {
-					SBPP_BanPlayer(0, attacker, iBanTime, sMessage);
+					SBPP_BanPlayer(0, attacker, cvBanTime.IntValue, sMessage);
 				}
 				case 3: {
-					MABanPlayer(0, attacker, MA_BAN_STEAM, iBanTime, sMessage);
+					MABanPlayer(0, attacker, MA_BAN_STEAM, cvBanTime.IntValue, sMessage);
 				}
 				default: {
 					LogError("Method not found");
 				}
 			}
-			if(iMethod == 0)
+			if(cvMethod.IntValue == 0)
 			{
-				if(iLogs > 0)
+				if(cvLogs.IntValue > 0)
 					LogToFile(sPath, "%t", "Kicked", sNameAttaker, sSteamID_Attaker);
 
-				if(iKickMsg == 1)
+				if(cvKickMsg.IntValue == 1)
 				{
 					if(Engine_Version == GAME_CSGO) CGOPrintToChatAll("%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
 					else CPrintToChatAll("%t", "Tag", "Kicked withdrawal to players", sNameAttaker, sSteamID_Attaker);
 				}
-				else if(iKickMsg == 2)
+				else if(cvKickMsg.IntValue == 2)
 				{
 					for(int a = 1; a<=MaxClients;a++)
 					{
@@ -1738,15 +1400,15 @@ public void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LE
 				}
 			}
 		}
-		else if((iImmunity < 4 && iImmunity >= 0) || GetUserAdmin(attacker) == INVALID_ADMIN_ID)
+		else if((cvImmunity.IntValue < 4 && cvImmunity.IntValue >= 0) || GetUserAdmin(attacker) == INVALID_ADMIN_ID)
 		{
-			if(iPunishMode == 1)
+			if(cvPunishMode.IntValue == 1)
 				PunishMenu(client, attacker);
-			else if(iPunishMode == 2)
+			else if(cvPunishMode.IntValue == 2)
 			{
 				char punishment[32];
 
-				switch(iPunishMent)
+				switch(cvPunishMent.IntValue)
 				{
 					case 0: punishment = "warn";
 					case 1: punishment = "slay";
@@ -1766,14 +1428,14 @@ public void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LE
 				if(IsPlayerAlive(attacker))
 				{
 					PunishHandler(client, attacker, punishment);
-					if(bDebag) PrintToChatAll("Убийца(%N) ЖИВ", attacker);
+					if(cvDebag.BoolValue) PrintToChatAll("Убийца(%N) ЖИВ", attacker);
 				}
 				else
 				{
 					PunishmentClient[attacker] = punishment;
 					VictimClient[attacker] = client;
 					CreateTimer(5.0, WaitForSpawn, attacker, TIMER_FLAG_NO_MAPCHANGE);
-					if(bDebag) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 3", attacker, 5.0);
+					if(cvDebag.BoolValue) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд 3", attacker, 5.0);
 				}
 			}
 		}
@@ -1783,8 +1445,7 @@ public void DidNotForgive(int attacker, int client, char sNameVictim[MAX_NAME_LE
 /*
 	Punishment helper method
 */
-
-public void PunishHandler(int client, int attacker, char punishment[32])
+void PunishHandler(int client, int attacker, char punishment[32])
 {
 	if(client > 0 && IsClientInGame(client))
 	{
@@ -1807,9 +1468,9 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 			}
 			else if ( strcmp(punishment, "slap", false) == 0 )
 			{
-				Format(PunishMsg, sizeof(PunishMsg), "%t", "Slapped", victimName, attackerName, iSlapDamage);
+				Format(PunishMsg, sizeof(PunishMsg), "%t", "Slapped", victimName, attackerName, cvSlapDamage.IntValue);
 
-				SlapPlayer(attacker, iSlapDamage);
+				SlapPlayer(attacker, cvSlapDamage.IntValue);
 			}
 			else if ( strcmp(punishment, "burn", false) == 0 )
 			{
@@ -1851,14 +1512,14 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 			{
 				Format(PunishMsg, sizeof(PunishMsg), "%t", "Drugged", victimName, attackerName);
 
-				CreateTimer(fDrugTime, Undrug, attacker, TIMER_FLAG_NO_MAPCHANGE);
+				CreateTimer(cvDrugTime.FloatValue, Undrug, attacker, TIMER_FLAG_NO_MAPCHANGE);
 				ServerCommand("sm_drug \"%s\"", attackerName);
 			}
 			else if ( strcmp(punishment, "removecash", false) == 0 )
 			{
-				Format(PunishMsg, sizeof(PunishMsg), "%t", "CashRemoved", victimName, iRemoveCash, attackerName);
+				Format(PunishMsg, sizeof(PunishMsg), "%t", "CashRemoved", victimName, cvRemoveCash.IntValue, attackerName);
 
-				int divisor = iRemoveCash / 100;
+				int divisor = cvRemoveCash.IntValue / 100;
 				int cash = GetEntData(attacker, iMoney_offset) * divisor;
 				SetEntData(attacker, iMoney_offset, cash);
 			}
@@ -1867,10 +1528,10 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 				Format(PunishMsg, sizeof(PunishMsg), "%t", "Chicken", victimName, attackerName);
 				SetEntityModel(attacker, sChicken);
 				//DispatchKeyValue(attacker, "Solid", "0");
-				SetEntPropFloat(attacker, Prop_Data, "m_flLaggedMovementValue", fChickenSpeed);
+				SetEntPropFloat(attacker, Prop_Data, "m_flLaggedMovementValue", cvChickenSpeed.FloatValue);
 				bKillAttaker[attacker] = true;
 				
-				if(!bDraw)
+				if(!cvDraw.BoolValue)
 				{
 					SetEntPropEnt(attacker, Prop_Send, "m_hObserverTarget", 0);
 					SetEntProp(attacker, Prop_Send, "m_iObserverMode", 1);
@@ -1887,7 +1548,7 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 					funAnim(attacker);
 				}*/
 				
-				if(bDebag)
+				if(cvDebag.BoolValue)
 				{
 					if(bKillAttaker[attacker] == true)
 						PrintToChatAll("Класс аттакер установлен на игрока %N", attacker);
@@ -1913,7 +1574,7 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 				
 				SDKHook(attacker, SDKHook_WeaponCanUse, WeaponCanUse);
 			}
-			DoChat(client, attacker, PunishMsg, PunishMsg, iPunishMsg, false);
+			DoChat(client, attacker, PunishMsg, PunishMsg, cvPunishMsg.IntValue, false);
 		}
 	}
 	else
@@ -1939,9 +1600,9 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 			}
 			else if ( strcmp(punishment, "slap", false) == 0 )
 			{
-				Format(PunishMsg, sizeof(PunishMsg), "%t", "Slapped", victimName, attackerName, iSlapDamage);
+				Format(PunishMsg, sizeof(PunishMsg), "%t", "Slapped", victimName, attackerName, cvSlapDamage.IntValue);
 
-				SlapPlayer(attacker, iSlapDamage);
+				SlapPlayer(attacker, cvSlapDamage.IntValue);
 			}
 			else if ( strcmp(punishment, "burn", false) == 0 )
 			{
@@ -1983,14 +1644,14 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 			{
 				Format(PunishMsg, sizeof(PunishMsg), "%t", "Drugged", victimName, attackerName);
 
-				CreateTimer(fDrugTime, Undrug, attacker, TIMER_FLAG_NO_MAPCHANGE);
+				CreateTimer(cvDrugTime.FloatValue, Undrug, attacker, TIMER_FLAG_NO_MAPCHANGE);
 				ServerCommand("sm_drug \"%s\"", attackerName);
 			}
 			else if ( strcmp(punishment, "removecash", false) == 0 )
 			{
-				Format(PunishMsg, sizeof(PunishMsg), "%t", "CashRemoved", victimName, iRemoveCash, attackerName);
+				Format(PunishMsg, sizeof(PunishMsg), "%t", "CashRemoved", victimName, cvRemoveCash.IntValue, attackerName);
 
-				int divisor = iRemoveCash / 100;
+				int divisor = cvRemoveCash.IntValue / 100;
 				int cash = GetEntData(attacker, iMoney_offset) * divisor;
 				SetEntData(attacker, iMoney_offset, cash);
 			}
@@ -1999,11 +1660,11 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 				Format(PunishMsg, sizeof(PunishMsg), "%t", "Chicken", victimName, attackerName);
 				
 				SetEntityModel(attacker, sChicken);
-				SetEntPropFloat(attacker, Prop_Data, "m_flLaggedMovementValue", fChickenSpeed);
-				//PrintToChatAll("Скорость курици: %.2f", fChickenSpeed);
+				SetEntPropFloat(attacker, Prop_Data, "m_flLaggedMovementValue", cvChickenSpeed.FloatValue);
+				//PrintToChatAll("Скорость курици: %.2f", cvChickenSpeed.FloatValue);
 				bKillAttaker[attacker] = true;
 				
-				if(bDraw)
+				if(cvDraw.BoolValue)
 				{
 					SetEntPropEnt(attacker, Prop_Send, "m_hObserverTarget", 0);
 					SetEntProp(attacker, Prop_Send, "m_iObserverMode", 1);
@@ -2011,7 +1672,7 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 					SetEntProp(attacker, Prop_Send, "m_iFOV", 50);
 				}
 				
-				if(bDebag)
+				if(cvDebag.BoolValue)
 				{
 					if(bKillAttaker[attacker] == true)
 						PrintToChatAll("Класс аттакер установлен на игрока %N", attacker);
@@ -2041,13 +1702,13 @@ public void PunishHandler(int client, int attacker, char punishment[32])
 				SDKHook(attacker, SDKHook_WeaponCanUse, WeaponCanUse);
 				
 			}
-			if(IsValidEdict(client)) DoChat(client, attacker, PunishMsg, PunishMsg, iPunishMsg, false);
+			if(IsValidEdict(client)) DoChat(client, attacker, PunishMsg, PunishMsg, cvPunishMsg.IntValue, false);
 		}
 	}
 }
 
-//Рапрет подёма оружия
-public Action WeaponCanUse(int attacker, int weapon)
+//Запрет подёма оружия
+Action WeaponCanUse(int attacker, int weapon)
 {
 	bHook[attacker] = true;
 	if(bKillAttaker[attacker] && weapon != -1)
@@ -2070,7 +1731,7 @@ public Action OnPlayerRunCmd(int attacker, int &buttons, int &impulse, float vel
 		{
 			if(bKillAttaker[d])
 			{
-				if(bDebag) PrintToChatAll("Проверка на Use Включена");
+				if(cvDebag.BoolValue) PrintToChatAll("Проверка на Use Включена");
 				buttons &= ~IN_USE;
 			}
 		}
@@ -2079,7 +1740,7 @@ public Action OnPlayerRunCmd(int attacker, int &buttons, int &impulse, float vel
 	return Plugin_Continue;
 }
 
-public void RemoveGrenade(int client)
+void RemoveGrenade(int client)
 {
 	RemoveGrenades(client, "weapon_hegrenade");
 	RemoveGrenades(client, "weapon_smokegrenade");
@@ -2122,9 +1783,9 @@ void RemoveGrenades(int client, char[] weapon)
 	Chat helper method.
 */
 
-public void DoChat(int victim, int attacker, char msg1[128], char msg2[128], int cvar, bool isCount)
+void DoChat(int victim, int attacker, char msg1[128], char msg2[128], int cvar, bool isCount)
 {
-	if(iLogs && ((iLogs == 1) || ((iLogs == 2) && isCount)))
+	if(cvLogs.IntValue && ((cvLogs.IntValue == 1) || ((cvLogs.IntValue == 2) && isCount)))
 	{
 		char sAttackerSteam[32], sVictimSteam[32];
 
@@ -2178,7 +1839,7 @@ public void DoChat(int victim, int attacker, char msg1[128], char msg2[128], int
 	Undrug handler to undrug a player after sm_tk_drugtime
 */
 
-public Action Undrug(Handle timer, any UserID)
+Action Undrug(Handle timer, any UserID)
 {
 	int client = GetClientOfUserId(UserID);
 	if(client)
@@ -2190,7 +1851,7 @@ public Action Undrug(Handle timer, any UserID)
 	Handler to deal punishment to a TKer if he/she was dead when the punishment was to be dealt.
 */
 
-public Action WaitForSpawn(Handle timer, any attacker)
+Action WaitForSpawn(Handle timer, any attacker)
 {
 	if(attacker > 0 && IsClientInGame(attacker))
 	{
@@ -2208,7 +1869,7 @@ public Action WaitForSpawn(Handle timer, any attacker)
 			{
 				PunishHandler(victim, attacker, punishment);
 				
-				if(bDebag)
+				if(cvDebag.BoolValue)
 				{
 					PrintToChatAll("Убийца[%N] | Наказание[%s]", attacker, punishment);
 					PrintToChatAll("Убийца(%N) ЖИВ 2", attacker);
@@ -2218,7 +1879,7 @@ public Action WaitForSpawn(Handle timer, any attacker)
 		else
 		{
 			CreateTimer(5.0, WaitForSpawn, attacker, TIMER_FLAG_NO_MAPCHANGE);
-			if(bDebag) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд", attacker, 5.0);
+			if(cvDebag.BoolValue) PrintToChatAll("Убийца(%N) мёртв, повтор через %f секунд", attacker, 5.0);
 		}
 	}
 	return Plugin_Handled;
