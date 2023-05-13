@@ -9,6 +9,7 @@ colors_ws (rename file) https://hlmod.net/resources/colors-inc-cveta-csgo-css-cs
 
 smartdm (new style) https://forums.alliedmods.net/showthread.php?t=206496
 
+
 # en
 We bring to your attention an Anti-TK System that allows you to track non-conscientious players who kill/injure teammates (with mp_friendlyfire 1). This plugin provides the functionality:
 
