@@ -43,12 +43,14 @@ bool
 	bTKRoundDmg[MAXPLAYERS+1],		//Наносил ли игрок урон в раунде своей команде
 	bMsgFire,	//сообщение урон по своим !
 	bDraw,		//Включить вид от 3 лица курице
-	bPerformFade;
+	bPerformFade,
+	bHudTextTKDmgEnable;
 
 Handle
 	hChicken,
 	hDamage_reduction_bullets,
-	hFriendlyFire;
+	hFriendlyFire,
+	hHudTextTKDmg;
 
 float
 	fDrugTime,
@@ -58,7 +60,8 @@ float
 	fEyeAngle,
 	fChickenSpeed,
 	fDamage_reduction_bullets,
-	fDmgReduction;
+	fDmgReduction,
+	fHudTextTKDmgPos[2];
 
 int
 	iMoney_offset = -1,
@@ -121,7 +124,7 @@ public Plugin myinfo =
 	name = "Anti-TK System",
 	author = "Lebson506th, by Nek.'a 2x2 | ggwp.site , oleg_nelasy",
 	description = "Anti-TK Система",
-	version = "1.0.8",
+	version = "1.0.9",
 	url = "http://hlmod.ru and https://ggwp.site/"
 };
 
@@ -318,6 +321,16 @@ public void OnPluginStart()
 	cvar.AddChangeHook(CVarChanged_PerformFade);
 	bPerformFade = cvar.BoolValue;
 	
+	cvar = CreateConVar("sm_tk_hudtexttkdmg", "1", "Включить оповещение лимита нанесённого урона в худе", _, true, _, true, 1.0);
+	cvar.AddChangeHook(CVarChanged_HudTextTKDmgEnable);
+	bHudTextTKDmgEnable = cvar.BoolValue;
+	
+	char sBuffer[16];
+	(cvar = CreateConVar("sm_tk_hudtexttkdmg_pos", "0.35 -0.08", "Расположение. X/Y где X это горизонталь, а Y вертикаль")).AddChangeHook(CVarChanged_HudTextTKDmg_Position);
+	cvar.GetString(sBuffer, sizeof(sBuffer));
+	
+	HudTextTKDmg_Position(sBuffer);
+	
 	ConVar cvTemp;
 	if((cvTemp = FindConVar("mp_friendlyfire")) != null) cvTemp.Flags = cvTemp.Flags & ~FCVAR_NOTIFY;
 	if((cvTemp = FindConVar("sv_tags")) != null) cvTemp.Flags = cvTemp.Flags & ~FCVAR_NOTIFY;
@@ -363,7 +376,12 @@ public void OnPluginStart()
 	AutoExecConfig(true, "anti-tk");
 }
 
-
+public void CVarChanged_HudTextTKDmg_Position(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+	char sBuffer[16];
+	convar.GetString(sBuffer, sizeof(sBuffer));
+	HudTextTKDmg_Position(sBuffer);
+}
 
 public void OnConVarChanges_Chicken(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
@@ -376,6 +394,11 @@ public void OnConVarChanges_Chicken(ConVar cvar, const char[] oldValue, const ch
 public void CVarChanged_Enable(ConVar cvar, const char[] oldValue, const char[] newValue)
 {
 	bEnable	= cvar.BoolValue;
+}
+
+public void CVarChanged_HudTextTKDmgEnable(ConVar cvar, const char[] oldValue, const char[] newValue)
+{
+	bHudTextTKDmgEnable	= cvar.BoolValue;
 }
 
 public void CVarChanged_Debag(ConVar cvar, const char[] oldValue, const char[] newValue)
@@ -778,6 +801,14 @@ public void Event_PlayerSpawn(Handle event, const char[] name, bool dontBroadcas
 		SetEntProp(client, Prop_Send, "m_bDrawViewmodel", 1);
 		SetEntProp(client, Prop_Send, "m_iFOV", 90);
 	}
+	
+	if(hHudTextTKDmg)	
+	{
+		KillTimer(hHudTextTKDmg);
+		hHudTextTKDmg = null;
+	}
+	if(bHudTextTKDmgEnable)
+		hHudTextTKDmg = CreateTimer(1.0, Timer_HudTextTKDmg, _, TIMER_REPEAT);
 }
 
 /*
@@ -835,16 +866,16 @@ public void SayWarnings(int iClient, int iDmg, int iVictim)
 
 public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage, int &iDamageType, int &Weapon, float fDamageForce[3], float fDamagePosition[3], int iDamageCustom)
 {
-	if(!iFriendlyFire)
-		return Plugin_Handled;
+//	if(!iFriendlyFire)
+//		return Plugin_Handled;
 	
 	static char sMessage[256], sMsgKick[256];
 	if (1 <= iAttacker <= MaxClients) FormatEx(sMessage, sizeof(sMessage), "%T", "TK Limit Reached damage", iAttacker);
 	if (1 <= iAttacker <= MaxClients) FormatEx(sMsgKick, sizeof(sMsgKick), "%T", "Kicked Attaker damage", iAttacker);
-	
+
 	if(Engine_Version == GAME_CSGO)
 	{
-		for(int i = 1; i <= MaxClients; i++) if(i == iAttacker && IsClientInGame(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64) && !GameRules_GetProp("m_bWarmupPeriod"))
+		for(int i = 1; i <= MaxClients; i++) if(iFriendlyFire && i == iAttacker && IsClientInGame(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64) && !GameRules_GetProp("m_bWarmupPeriod"))
 		{
 			//PrintToChatAll("Размер множетеля [%.2f]", fDamage_reduction_bullets);
 			iTKDmgLimit[i] += RoundFloat(fDamage * fDamage_reduction_bullets);
@@ -880,7 +911,7 @@ public Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &
 	}
 	else
 	{
-		for(int i = 1; i <= MaxClients; i++) if(i == iAttacker && IsClientInGame(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64))
+		for(int i = 1; i <= MaxClients; i++) if(iFriendlyFire && i == iAttacker && IsClientInGame(iAttacker) && GetClientTeam(iVictim) == GetClientTeam(iAttacker) && !(iDamageType & DMG_BURN || iDamageType == 64))
 		{
 			//iTKDmgLimit[i] += RoundFloat(fDamage);
 			/*int iVictimLostHp = GetEventInt(event, "dmg_health");		//Потеряное ХП
@@ -1081,6 +1112,33 @@ stock void PerformFade(int client, int duration, int color[4])
 		BfWriteByte(hMessage, color[3]);
 	}
 	EndMessage();
+}
+
+void HudTextTKDmg_Position(const char[] sBuffer)
+{
+	char sPosition[2][16];
+	ExplodeString(sBuffer, " ", sPosition, 2, 16);
+	
+	fHudTextTKDmgPos[0] = StringToFloat(sPosition[0]);
+	fHudTextTKDmgPos[1] = StringToFloat(sPosition[1]);
+}
+
+public Action Timer_HudTextTKDmg(Handle hTimer)
+{
+	static char sTKDmg[256];
+	
+	int iClr[4];
+	iClr[0] = GetRandomInt(250, 255);
+	iClr[1] = GetRandomInt(0, 153);
+	iClr[2] = GetRandomInt(0, 153);
+	iClr[3] = 255;
+	SetHudTextParamsEx(fHudTextTKDmgPos[0], fHudTextTKDmgPos[1], 1.1, iClr, iClr, 2, 0.0, 0.0, 0.0);
+	
+	for(int i = 1; i <= MaxClients; i++) if(i && IsClientInGame(i) && !IsFakeClient(i)) 
+	{
+		FormatEx(sTKDmg, sizeof(sTKDmg), "%T", "Hud Text TKDmg", i, iTKDmgLimit[i], iTKDmg);
+		ShowHudText(i, -1, sTKDmg);
+	}
 }
 
 public void HudText(int userid)
@@ -2014,7 +2072,7 @@ public Action OnPlayerRunCmd(int attacker, int &buttons, int &impulse, float vel
 	return Plugin_Continue;
 }
 
-public Action RemoveGrenade(int client)
+public void RemoveGrenade(int client)
 {
 	RemoveGrenades(client, "weapon_hegrenade");
 	RemoveGrenades(client, "weapon_smokegrenade");
