@@ -124,7 +124,7 @@ public Plugin myinfo =
 	name = "Anti-TK System",
 	author = "Lebson506th, by Nek.'a 2x2 | ggwp.site , oleg_nelasy",
 	description = "Anti-TK Система",
-	version = "1.0.9",
+	version = "1.1.0",
 	url = "http://hlmod.ru and https://ggwp.site/"
 };
 
@@ -341,7 +341,8 @@ public void OnPluginStart()
 	HookEvent("player_team", Event_PlayerTeam, EventHookMode_Pre);
 	HookEvent("round_start", Event_OnStart);
 	//HookEvent("round_end", Event_OnEnd);
-	if(Engine_Version != GAME_CSGO) HookUserMessage(GetUserMessageId("TextMsg"), Hook_TextMsg, true);
+	//if(Engine_Version != GAME_CSGO)
+	//	HookUserMessage(GetUserMessageId("TextMsg"), Hook_TextMsg, true);
 	
 	Handle spawnprotect = FindConVar("mp_spawnprotectiontime");
 	
@@ -1123,7 +1124,7 @@ void HudTextTKDmg_Position(const char[] sBuffer)
 	fHudTextTKDmgPos[1] = StringToFloat(sPosition[1]);
 }
 
-public Action Timer_HudTextTKDmg(Handle hTimer)
+Action Timer_HudTextTKDmg(Handle hTimer)
 {
 	static char sTKDmg[256];
 	
@@ -1139,6 +1140,7 @@ public Action Timer_HudTextTKDmg(Handle hTimer)
 		FormatEx(sTKDmg, sizeof(sTKDmg), "%T", "Hud Text TKDmg", i, iTKDmgLimit[i], iTKDmg);
 		ShowHudText(i, -1, sTKDmg);
 	}
+	return Plugin_Continue;
 }
 
 public void HudText(int userid)
@@ -1233,12 +1235,14 @@ public void HudText(int userid)
 	}
 }
 
-public Action HudTimer(Handle timer, any client)
+Action HudTimer(Handle timer, any client)
 {
 	HudText(client);
+
+	return Plugin_Continue;
 }
 
-public Action tFriendlyFire(Handle timer, any client)
+Action tFriendlyFire(Handle timer, any client)
 {
 	if(bMsgFire)
 	{
@@ -1249,9 +1253,10 @@ public Action tFriendlyFire(Handle timer, any client)
 		//cFriendlyFire.SetBool(true, false, false);
 		//PrintToChatAll("Огонь по свои активирован !");
 	}
+	return Plugin_Continue;
 }
 
-public Action Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
+void Event_OnStart(Handle event, const char[] name, bool dontBroadcast)
 {
 //	if(bMsgFire) bFriendlyFire = true;
 //	else bFriendlyFire = false;
@@ -1451,6 +1456,7 @@ public int AdminMenuHandler(Handle hMenu, MenuAction action, int client, int ite
 		//CancelMenu(hMenu);
 		CloseHandle(hMenu);
 	}
+	return 0;
 }
 
 /*
@@ -1626,6 +1632,7 @@ public int PunishMenuHandler(Handle hMenu, MenuAction action, int client, int it
 			}
 		}
 	}*/
+	return 0;
 }
 
 /*
