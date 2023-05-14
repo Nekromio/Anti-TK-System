@@ -131,7 +131,7 @@ public Plugin myinfo =
 	name = "Anti-TK System",
 	author = "Lebson506th, by Nek.'a 2x2 | ggwp.site , oleg_nelasy",
 	description = "Anti-TK Система",
-	version = "1.1.2",
+	version = "1.1.3",
 	url = "https://ggwp.site/"
 };
 
@@ -248,8 +248,8 @@ public void OnPluginStart()
 	HookEvent("player_team", Event_PlayerTeam, EventHookMode_Pre);
 	HookEvent("round_start", Event_OnStart);
 	//HookEvent("round_end", Event_OnEnd);
-	//if(Engine_Version != GAME_CSGO)
-	//	HookUserMessage(GetUserMessageId("TextMsg"), Hook_TextMsg, true);
+	if(Engine_Version != 3)
+		HookUserMessage(GetUserMessageId("TextMsg"), Hook_TextMsg, true);
 	
 	Handle spawnprotect = FindConVar("mp_spawnprotectiontime");
 	
@@ -485,7 +485,7 @@ public void OnClientPutInServer(int client)
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
 }
 
-public Action Hook_TextMsg(UserMsg msg_id, Handle hBf, const char[] players, int playersNum, bool reliable, bool init)
+Action Hook_TextMsg(UserMsg msg_id, Handle hBf, const int[] players, int playersNum, bool reliable, bool init)
 {
 	char sMessage[256];
 	BfReadString(hBf, sMessage, sizeof(sMessage));
@@ -520,6 +520,8 @@ Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage
 {
 //	if(!iFriendlyFire)
 //		return Plugin_Handled;
+	if(IsClientValid(iVictim) && IsClientValid(iAttacker) && iVictim == iAttacker)
+		return Plugin_Continue;
 	
 	static char sMessage[256], sMsgKick[256];
 	if (IsClientValid(iAttacker))
@@ -572,13 +574,19 @@ Action OnTakeDamage(int iVictim, int &iAttacker, int &iInflictor, float &fDamage
 			int iVictimHealth = GetClientHealth(victim) + iVictimLostHp;	//Количесиво здоровья жертвы
 			int iAttackerHealth = GetClientHealth(attacker) - iVictimLostHp * RoundFloat(cvDamageRatio.FloatValue);	//Количесиво здоровья атакера
 			*/
-			iTKDmgLimit[i] += RoundFloat(fDamage * cvDmgReduction.FloatValue);
+			if(Engine_Version == 3)
+				iTKDmgLimit[i] += RoundFloat(fDamage * cvDmgReduction.FloatValue);
+			else
+				iTKDmgLimit[i] += RoundFloat(fDamage);
 			bTKRoundDmg[i] = true;
 			//PrintToChatAll("Сумма урона игрока [%N] - [%d]", i, iTKDmgLimit[i]);
 			//PrintToChatAll("Клиент [%N] | Индекс игрока [%d] | Значение индекса [%d]", iAttacker, i, iTKDmgLimit[i]);
 			//PrintToChatAll("Игрок [%N] нанёс [%.2f] урона [%N]", iAttacker, fDamage, iVictim);
 			
-			SayWarnings(i, RoundFloat(fDamage * cvDmgReduction.FloatValue), iVictim);
+			if(Engine_Version == 3)
+				SayWarnings(i, RoundFloat(fDamage * cvDmgReduction.FloatValue), iVictim);
+			else
+				SayWarnings(i, RoundFloat(fDamage), iVictim);
 			
 			if(iTKDmgLimit[i] >= cvTKDmg.IntValue && cvTKDmg.IntValue)
 			{
@@ -779,7 +787,7 @@ void HudTextTKDmg_Position(const char[] sBuffer)
 
 Action Timer_HudTextTKDmg(Handle hTimer)
 {
-	static char sTKDmg[256];
+	static char sBuffer[512];
 	
 	int iClr[4];
 	iClr[0] = GetRandomInt(250, 255);
@@ -788,10 +796,10 @@ Action Timer_HudTextTKDmg(Handle hTimer)
 	iClr[3] = 255;
 	SetHudTextParamsEx(fHudTextTKDmgPos[0], fHudTextTKDmgPos[1], 1.1, iClr, iClr, 2, 0.0, 0.0, 0.0);
 	
-	for(int i = 1; i <= MaxClients; i++) if(i && IsClientInGame(i) && !IsFakeClient(i)) 
+	for(int i = 1; i <= MaxClients; i++) if(IsClientInGame(i) && !IsFakeClient(i)) 
 	{
-		FormatEx(sTKDmg, sizeof(sTKDmg), "%T", "Hud Text TKDmg", i, iTKDmgLimit[i], cvTKDmg.IntValue);
-		ShowHudText(i, -1, sTKDmg);
+		FormatEx(sBuffer, sizeof(sBuffer), "%t", "Hud Text TKDmg", iTKDmgLimit[i], cvTKDmg.IntValue);
+		ShowHudText(i, 75, sBuffer);
 	}
 	return Plugin_Continue;
 }
