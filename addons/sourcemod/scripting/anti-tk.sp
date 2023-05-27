@@ -58,7 +58,8 @@ ConVar
 	cvRemoveCash,
 	cvLogs,
 	cvTKRound,			//Количество раундов после которого скинется предупреждение
-	cvChickenModel;		
+	cvChickenModel,
+	cvPosHud;		
 
 bool
 	bKillAttaker[MAXPLAYERS+1],
@@ -131,7 +132,7 @@ public Plugin myinfo =
 	name = "Anti-TK System",
 	author = "Lebson506th, by Nek.'a 2x2 | ggwp.site , oleg_nelasy",
 	description = "Anti-TK Система",
-	version = "1.1.3",
+	version = "1.1.4",
 	url = "https://ggwp.site/"
 };
 
@@ -231,12 +232,9 @@ public void OnPluginStart()
 	
 	cvHudTextTKDmgEnable = CreateConVar("sm_tk_hudtexttkdmg", "1", "Включить оповещение лимита нанесённого урона в худе", _, true, _, true, 1.0);
 	
-	char sBuffer[16];
-	ConVar cvar;
-	(cvar = CreateConVar("sm_tk_hudtexttkdmg_pos", "0.35 -0.08", "Расположение. X/Y где X это горизонталь, а Y вертикаль")).AddChangeHook(CVarChanged_HudTextTKDmg_Position);
-	cvar.GetString(sBuffer, sizeof(sBuffer));
-	
-	HudTextTKDmg_Position(sBuffer);
+	cvPosHud = CreateConVar("sm_tk_hudtexttkdmg_pos", "0.35 -0.08", "Расположение. X/Y где X это горизонталь, а Y вертикаль");
+
+	HudTextTKDmg_Position();
 	
 	ConVar cvTemp;
 	if((cvTemp = FindConVar("mp_friendlyfire")) != null) cvTemp.Flags = cvTemp.Flags & ~FCVAR_NOTIFY;
@@ -283,17 +281,6 @@ public void OnPluginStart()
 	for(int i = 1; i <= MaxClients; i++) if(IsClientInGame(i)) OnClientPutInServer(i);
 	AutoExecConfig(true, "anti-tk");
 }
-
-public void CVarChanged_HudTextTKDmg_Position(ConVar convar, const char[] oldValue, const char[] newValue)
-{
-	char sBuffer[16];
-	convar.GetString(sBuffer, sizeof(sBuffer));
-	HudTextTKDmg_Position(sBuffer);
-}
-
-/*
-	Handlers to reset variables on disconnect and map start.
-*/
 
 public void OnMapStart()
 {
@@ -776,10 +763,11 @@ stock void PerformFade(int client, int duration, int color[4])
 	EndMessage();
 }
 
-void HudTextTKDmg_Position(const char[] sBuffer)
+void HudTextTKDmg_Position()
 {
-	char sPosition[2][16];
-	ExplodeString(sBuffer, " ", sPosition, 2, 16);
+	char sPosition[2][32];
+	cvPosHud.GetString(sPosition[0], sizeof(sPosition[]));
+	ExplodeString(sPosition[0], " ", sPosition, 2, 32);
 	
 	fHudTextTKDmgPos[0] = StringToFloat(sPosition[0]);
 	fHudTextTKDmgPos[1] = StringToFloat(sPosition[1]);
