@@ -1,7 +1,8 @@
 # Anti-TK-System
 Anti-TK System
 
-https://youtu.be/zWEfkWqv-vY?list=PLNUg9zX_a3XiZvKtLrM2JVm49cheHN392
+[<img src="https://img.youtube.com/vi/zWEfkWqv-vY?list=PLNUg9zX_a3XiZvKtLrM2JVm49cheHN392/0.jpg" width="50%">](https://youtu.be/zWEfkWqv-vY?list=PLNUg9zX_a3XiZvKtLrM2JVm49cheHN392)
+
 
 Требования:
 
