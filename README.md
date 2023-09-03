@@ -1,5 +1,4 @@
 # Anti-TK-System
-Anti-TK System
 
 [<img src="https://img.youtube.com/vi/zWEfkWqv-vY/0.jpg" width="50%">](https://youtu.be/zWEfkWqv-vY)
 
